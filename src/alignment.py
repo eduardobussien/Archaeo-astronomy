@@ -33,3 +33,40 @@ target_date = Time({
 
 print(f"Target observation date: {target_date.iso}")
 print(f"Julian Date: {target_date.jd}")
+
+# Sunrise time
+sun_position = get_sun(target_date)
+
+# AltAz coordinate frame
+altaz_frame = AltAz(obstime=target_date, location=pyramid_location)
+sun_altaz = sun_position.transform_to(altaz_frame)
+
+print(f"\nAt 6:00 AM local time:")
+print(f"Sun altitude: {sun_altaz.alt:.2f}")
+print(f"Sun azimuth: {sun_altaz.az:.2f}")
+
+print("\nFinding exact sunrise time...")
+
+for minutes_before in range(0, 180, 15):  
+    total_minutes = 360 - minutes_before  
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    
+    test_time = Time({
+        'year': TARGET_YEAR,
+        'month': TARGET_MONTH,
+        'day': TARGET_DAY,
+        'hour': int(hours),
+        'minute': int(minutes),
+        'second': 0
+    }, format='ymdhms', scale='ut1')
+    
+    sun_pos = get_sun(test_time)
+    altaz = AltAz(obstime=test_time, location=pyramid_location)
+    sun_alt = sun_pos.transform_to(altaz).alt.degree
+    
+    # Print when cross horizon
+    if sun_alt < 0.5 and sun_alt > -0.5:
+        print(f"Sunrise at approximately: {hours:02d}:{minutes:02d}")
+        print(f"Sun altitude at this time: {sun_alt:.2f}°")
+        break
