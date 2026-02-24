@@ -34,7 +34,7 @@ target_date = Time({
 print(f"Target observation date: {target_date.iso}")
 print(f"Julian Date: {target_date.jd}")
 
-# Sunrise time
+# Sunrise time ! 
 sun_position = get_sun(target_date)
 
 # AltAz coordinate frame
@@ -70,3 +70,46 @@ for minutes_before in range(0, 180, 15):
         print(f"Sunrise at approximately: {hours:02d}:{minutes:02d}")
         print(f"Sun altitude at this time: {sun_alt:.2f}°")
         break
+
+
+print("\n" + "="*60)
+print("STELLAR ALIGNMENTS AT SUNRISE")
+print("="*60)
+
+sunrise_time = Time({
+    'year': TARGET_YEAR,
+    'month': TARGET_MONTH,
+    'day': TARGET_DAY,
+    'hour': 16,
+    'minute': 0,
+    'second': 0
+}, format='ymdhms', scale='ut1')
+
+# Define stars and constellations (just trying out for now)
+famous_stars = {
+    'Sirius (Brightest Star)': SkyCoord(ra='06h45m08.9s', dec='-16d42m58s', frame='icrs'),
+    'Betelgeuse (Orion)': SkyCoord(ra='05h55m10.3s', dec='+07d24m25s', frame='icrs'),
+    'Rigel (Orion)': SkyCoord(ra='05h14m32.3s', dec='-08d12m06s', frame='icrs'),
+    'Aldebaran (Taurus)': SkyCoord(ra='04h35m55.2s', dec='+16d30m33s', frame='icrs'),
+    'Procyon': SkyCoord(ra='07h39m18.1s', dec='+05d13m30s', frame='icrs'),
+}
+
+# Create AltAz frame for sunrise time
+sunrise_altaz = AltAz(obstime=sunrise_time, location=pyramid_location)
+
+print(f"\nAt sunrise ({sunrise_time.iso}):")
+print(f"Location: Great Pyramid ({PYRAMID_LAT.value:.4f}°N, {PYRAMID_LON.value:.4f}°E)\n")
+
+for star_name, star_coord in famous_stars.items():
+    star_altaz = star_coord.transform_to(sunrise_altaz)
+    
+    altitude = star_altaz.alt.degree
+    azimuth = star_altaz.az.degree
+    
+    # Determine if star is visible
+    if altitude > 0:
+        visibility = "+VISIBLE"
+    else:
+        visibility = "-Below horizon"
+    
+    print(f"{star_name:30s} | Alt: {altitude:7.2f}° | Az: {azimuth:6.2f}° | {visibility}")
