@@ -1,96 +1,83 @@
-"""
-Archaeo-Astronomy Alignment Tool. By EduardoBussien. 02/17/2026
-"""
+" Archaeo-Astronomy Alignment Tool - Calculate stellar alignments for any location and historical date. By eduardobussien"
 
-from astropy.coordinates import EarthLocation, SkyCoord, ICRS
-from astropy.time import Time
-import astropy.units as u
 import numpy as np
-import warnings
-warnings.filterwarnings('ignore')
 
-# Great Pyramid of Giza!!
-PYRAMID_LAT = 29.9792 * u.deg
-PYRAMID_LON = 31.1342 * u.deg
-PYRAMID_HEIGHT = 0 * u.m
-pyramid_location = EarthLocation(lat=PYRAMID_LAT, lon=PYRAMID_LON, height=PYRAMID_HEIGHT)
+J2000_JD = 2451545.0
+DAYS_IN_MONTH = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
 
-
-TARGET_YEAR = -10499
-# To calculate Julian Date
-days_per_year = 365.25
-years_from_j2000 = TARGET_YEAR - 2000
-jd_offset = years_from_j2000 * days_per_year
-j2000_jd = 2451545.0
-spring_equinox_offset = 79 + (0/24) 
-target_jd = j2000_jd + jd_offset + spring_equinox_offset
-
-print(f"Target observation: Spring Equinox, 10,500 BC (Midnight)")
-print(f"Julian Date: {target_jd:.2f}")
-
-# Calculate Local Sidereal Time manually (Angle of Earth's rotation at this moment)
-days_since_j2000 = target_jd - j2000_jd
-centuries_since_j2000 = days_since_j2000 / 36525.0
-
-# Greenwich Mean Sidereal Time at 0h UT
-gmst = 280.46061837 + 360.98564736629 * days_since_j2000 + 0.000387933 * centuries_since_j2000**2
-gmst = gmst % 360  # Keep in 0-360 range
-
-# Local Sidereal Time = GMST + longitude
-lst = (gmst + PYRAMID_LON.value) % 360
-
-print(f"Local Sidereal Time: {lst:.2f}°")
-
-print("\n" + "="*60)
-print("STELLAR ALIGNMENTS - MARCH 20, 10,500 BC")
-print("="*60)
-print(f"Location: Great Pyramid ({PYRAMID_LAT.value:.4f}°N, {PYRAMID_LON.value:.4f}°E)\n")
-
-# Define stars
-famous_stars = {
-    'Sirius (Brightest Star)': {'ra': 101.287, 'dec': -16.716},
-    'Betelgeuse (Orion)': {'ra': 88.793, 'dec': 7.407},
-    'Rigel (Orion)': {'ra': 78.634, 'dec': -8.202},
-    'Aldebaran (Taurus)': {'ra': 68.980, 'dec': 16.509},
-    'Procyon': {'ra': 114.825, 'dec': 5.225},
-    'Alnitak (Belt Left)': {'ra': 85.190, 'dec': -1.942},
-    'Alnilam (Belt Center)': {'ra': 84.053, 'dec': -1.202},
-    'Mintaka (Belt Right)': {'ra': 83.002, 'dec': -0.299},
+STARS = {
+    'Sirius': {'ra': 101.287, 'dec': -16.716},
+    'Betelgeuse': {'ra': 88.793, 'dec': 7.407},
+    'Rigel': {'ra': 78.634, 'dec': -8.202},
+    'Alnitak': {'ra': 85.190, 'dec': -1.942},
+    'Alnilam': {'ra': 84.053, 'dec': -1.202},
+    'Mintaka': {'ra': 83.002, 'dec': -0.299},
 }
 
-# Calculate altitude and azimuth for each star
-for star_name, coords in famous_stars.items():
-    ra = coords['ra']
-    dec = coords['dec']
-    
-    # Hour Angle = LST - RA
-    ha = (lst - ra)
-    if ha < 0:
+
+def date_to_jd(year, month, day, hour):
+    years_from_j2000 = year - 2000
+    days_from_years = years_from_j2000 * 365.25
+    day_of_year = DAYS_IN_MONTH[month - 1] + day
+    day_fraction = hour / 24.0
+    return J2000_JD + days_from_years + day_of_year + day_fraction
+
+
+def calculate_lst(jd, longitude):
+    days_since_j2000 = jd - J2000_JD
+    centuries = days_since_j2000 / 36525.0
+    gmst = 280.46061837 + 360.98564736629 * days_since_j2000 + 0.000387933 * centuries**2
+    gmst = gmst % 360
+    return (gmst + longitude) % 360
+
+
+def star_altaz(ra, dec, lst, latitude):
+    ha = lst - ra
+    if ha < -180:
         ha += 360
     if ha > 180:
         ha -= 360
     
-    # Convert to radians for calculation
     ha_rad = np.radians(ha)
     dec_rad = np.radians(dec)
-    lat_rad = np.radians(PYRAMID_LAT.value)
+    lat_rad = np.radians(latitude)
     
-    # Calculate altitude
     sin_alt = np.sin(dec_rad) * np.sin(lat_rad) + np.cos(dec_rad) * np.cos(lat_rad) * np.cos(ha_rad)
     altitude = np.degrees(np.arcsin(sin_alt))
     
-    # Calculate azimuth
     cos_az = (np.sin(dec_rad) - np.sin(lat_rad) * sin_alt) / (np.cos(lat_rad) * np.cos(np.arcsin(sin_alt)))
-    cos_az = np.clip(cos_az, -1, 1)  # Prevent numerical errors
+    cos_az = np.clip(cos_az, -1, 1)
     azimuth = np.degrees(np.arccos(cos_az))
     
     if np.sin(ha_rad) > 0:
         azimuth = 360 - azimuth
     
-    # Visibility
-    if altitude > 0:
-        visibility = "+VISIBLE"
-    else:
-        visibility = "-Below horizon"
+    return altitude, azimuth
+
+
+def calculate_alignments(lat, lon, year, month, day, hour):
+    jd = date_to_jd(year, month, day, hour)
+    lst = calculate_lst(jd, lon)
     
-    print(f"{star_name:30s} | Alt: {altitude:7.2f}° | Az: {azimuth:6.2f}° | {visibility}")
+    results = {'jd': jd, 'lst': lst, 'stars': {}}
+    
+    for name, coords in STARS.items():
+        alt, az = star_altaz(coords['ra'], coords['dec'], lst, lat)
+        results['stars'][name] = {
+            'altitude': alt,
+            'azimuth': az,
+            'visible': alt > 0
+        }
+    
+    return results
+
+
+if __name__ == "__main__":
+    r = calculate_alignments(29.9792, 31.1342, -10499, 3, 20, 0)
+    
+    print(f"10,500 BC - Great Pyramid - Midnight")
+    print(f"JD: {r['jd']:.2f} | LST: {r['lst']:.2f}°\n")
+    
+    for name, data in r['stars'].items():
+        vis = "VISIBLE" if data['visible'] else "HIDDEN"
+        print(f"{name:12s} | Alt: {data['altitude']:6.2f}° | Az: {data['azimuth']:6.2f}° | {vis}")
