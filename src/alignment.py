@@ -1,83 +1,90 @@
-" Archaeo-Astronomy Alignment Tool - Calculate stellar alignments for any location and historical date. By eduardobussien"
-
+import argparse
+import warnings
 import numpy as np
+from astropy.time import Time
+from astropy.coordinates import SkyCoord, EarthLocation, AltAz
+import astropy.units as u
+from astropy.utils.exceptions import AstropyWarning
 
-J2000_JD = 2451545.0
-DAYS_IN_MONTH = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+warnings.simplefilter('ignore', category=AstropyWarning)
 
+# High-Precision Star Data (Epoch J2000)
+# dist: approximate distance in parsecs
+# pm_ra: proper motion in Right Ascension (mas/yr)
+# pm_dec: proper motion in Declination (mas/yr)
 STARS = {
-    'Sirius': {'ra': 101.287, 'dec': -16.716},
-    'Betelgeuse': {'ra': 88.793, 'dec': 7.407},
-    'Rigel': {'ra': 78.634, 'dec': -8.202},
-    'Alnitak': {'ra': 85.190, 'dec': -1.942},
-    'Alnilam': {'ra': 84.053, 'dec': -1.202},
-    'Mintaka': {'ra': 83.002, 'dec': -0.299},
+    'Sirius':     {'ra': 101.287, 'dec': -16.716, 'dist': 2.64, 'pm_ra': -546.01, 'pm_dec': -1223.07},
+    'Betelgeuse': {'ra': 88.793,  'dec': 7.407,   'dist': 168,  'pm_ra': 27.54,   'pm_dec': 11.30},
+    'Rigel':      {'ra': 78.634,  'dec': -8.202,  'dist': 264,  'pm_ra': 1.87,    'pm_dec': -0.56},
+    'Alnitak':    {'ra': 85.190,  'dec': -1.942,  'dist': 226,  'pm_ra': 3.99,    'pm_dec': 2.54},
+    'Alnilam':    {'ra': 84.053,  'dec': -1.202,  'dist': 606,  'pm_ra': 1.44,    'pm_dec': -0.73},
+    'Mintaka':    {'ra': 83.002,  'dec': -0.299,  'dist': 280,  'pm_ra': 0.18,    'pm_dec': -0.58},
 }
 
+def get_observation_time(year, month, day, hour):
+    """Safely construct a historical time object, handling BC years."""
+    h = int(hour)
+    m = int((hour - h) * 60)
+    s = ((hour - h) * 60 - m) * 60
 
-def date_to_jd(year, month, day, hour):
-    years_from_j2000 = year - 2000
-    days_from_years = years_from_j2000 * 365.25
-    day_of_year = DAYS_IN_MONTH[month - 1] + day
-    day_fraction = hour / 24.0
-    return J2000_JD + days_from_years + day_of_year + day_fraction
-
-
-def calculate_lst(jd, longitude):
-    days_since_j2000 = jd - J2000_JD
-    centuries = days_since_j2000 / 36525.0
-    gmst = 280.46061837 + 360.98564736629 * days_since_j2000 + 0.000387933 * centuries**2
-    gmst = gmst % 360
-    return (gmst + longitude) % 360
-
-
-def star_altaz(ra, dec, lst, latitude):
-    ha = lst - ra
-    if ha < -180:
-        ha += 360
-    if ha > 180:
-        ha -= 360
-    
-    ha_rad = np.radians(ha)
-    dec_rad = np.radians(dec)
-    lat_rad = np.radians(latitude)
-    
-    sin_alt = np.sin(dec_rad) * np.sin(lat_rad) + np.cos(dec_rad) * np.cos(lat_rad) * np.cos(ha_rad)
-    altitude = np.degrees(np.arcsin(sin_alt))
-    
-    cos_az = (np.sin(dec_rad) - np.sin(lat_rad) * sin_alt) / (np.cos(lat_rad) * np.cos(np.arcsin(sin_alt)))
-    cos_az = np.clip(cos_az, -1, 1)
-    azimuth = np.degrees(np.arccos(cos_az))
-    
-    if np.sin(ha_rad) > 0:
-        azimuth = 360 - azimuth
-    
-    return altitude, azimuth
-
+    sign = "-" if year < 0 else ""
+    time_str = f"{sign}{abs(year):04d}-{month:02d}-{day:02d} {h:02d}:{m:02d}:{s:05.2f}"
+    return Time(time_str)
 
 def calculate_alignments(lat, lon, year, month, day, hour):
-    jd = date_to_jd(year, month, day, hour)
-    lst = calculate_lst(jd, lon)
+    obs_time = get_observation_time(year, month, day, hour)
+    loc = EarthLocation(lat=lat*u.deg, lon=lon*u.deg)
     
-    results = {'jd': jd, 'lst': lst, 'stars': {}}
+    altaz_frame = AltAz(obstime=obs_time, location=loc)
+    lst = obs_time.sidereal_time('mean', longitude=loc.lon).degree
     
-    for name, coords in STARS.items():
-        alt, az = star_altaz(coords['ra'], coords['dec'], lst, lat)
+    results = {'jd': obs_time.jd, 'lst': lst, 'stars': {}}
+    
+    for name, data in STARS.items():
+        star = SkyCoord(
+            ra=data['ra'] * u.deg, 
+            dec=data['dec'] * u.deg,
+            distance=data['dist'] * u.pc,
+            pm_ra_cosdec=data['pm_ra'] * u.mas/u.yr,
+            pm_dec=data['pm_dec'] * u.mas/u.yr,
+            obstime=Time('J2000')
+        )
+        
+        star_historical = star.apply_space_motion(new_obstime=obs_time)
+        
+        altaz = star_historical.transform_to(altaz_frame)
+        
         results['stars'][name] = {
-            'altitude': alt,
-            'azimuth': az,
-            'visible': alt > 0
+            'altitude': altaz.alt.degree,
+            'azimuth': altaz.az.degree,
+            'visible': altaz.alt.degree > 0
         }
-    
+        
     return results
 
-
 if __name__ == "__main__":
-    r = calculate_alignments(29.9792, 31.1342, -10499, 3, 20, 0)
+    parser = argparse.ArgumentParser(description="Archaeo-Astronomy Alignment Tool (High Precision)")
+    parser.add_argument("--lat", type=float, default=29.9792, help="Latitude")
+    parser.add_argument("--lon", type=float, default=31.1342, help="Longitude")
+    parser.add_argument("--year", type=int, default=-10499, help="Historical year (negative for BC)")
+    parser.add_argument("--month", type=int, default=3, help="Month")
+    parser.add_argument("--day", type=int, default=20, help="Day")
+    parser.add_argument("--hour", type=float, default=0.0, help="Hour (Military)")
+
+    args = parser.parse_args()
+    r = calculate_alignments(args.lat, args.lon, args.year, args.month, args.day, args.hour)
     
-    print(f"10,500 BC - Great Pyramid - Midnight")
-    print(f"JD: {r['jd']:.2f} | LST: {r['lst']:.2f}°\n")
+    era = "BC" if args.year < 0 else "AD"
+    print(f"\n=== Archaeo-Astronomy Alignment (Astropy Precision) ===")
+    print(f"Location: {args.lat}°, {args.lon}°")
+    print(f"Date:     {abs(args.year)} {era}-{args.month:02d}-{args.day:02d}")
+    print(f"Time:     {args.hour:05.2f} (Military)")
+    print(f"Metrics:  JD: {r['jd']:.2f} | LST: {r['lst']:.2f}°")
+    print("-" * 55)
+    print(f"{'STAR':<12s} | {'ALTITUDE':<10s} | {'AZIMUTH':<10s} | VISIBILITY")
+    print("-" * 55)
     
     for name, data in r['stars'].items():
         vis = "VISIBLE" if data['visible'] else "HIDDEN"
-        print(f"{name:12s} | Alt: {data['altitude']:6.2f}° | Az: {data['azimuth']:6.2f}° | {vis}")
+        print(f"{name:12s} | {data['altitude']:7.2f}°   | {data['azimuth']:7.2f}°   | {vis}")
+    print("\n")
