@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Archaeo Sky — Ancient Night Sky Explorer</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      height: 100vh;
+      background: #080c14;
+      color: #c9d1d9;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    aside {
+      background: #0d1117;
+      border-right: 1px solid #21262d;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 24px 20px;
+      gap: 22px;
+    }
+
+    .logo {
+      text-align: center;
+    }
+    .logo h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #f0c040;
+    }
+    .logo p {
+      font-size: 0.72rem;
+      color: #8b949e;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    hr { border: none; border-top: 1px solid #21262d; }
+
+    .section-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #f0c040;
+      margin-bottom: 10px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      color: #8b949e;
+      margin-bottom: 5px;
+    }
+
+    select, input[type="number"] {
+      width: 100%;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      font-size: 0.85rem;
+      padding: 7px 10px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    select:focus, input[type="number"]:focus {
+      border-color: #f0c040;
+    }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .slider-wrap { display: flex; flex-direction: column; gap: 6px; }
+    .slider-wrap .value-display {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e6edf3;
+      text-align: center;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: #30363d;
+      border-radius: 4px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #f0c040;
+      cursor: pointer;
+    }
+
+    #view-btn {
+      width: 100%;
+      padding: 10px;
+      background: #f0c040;
+      color: #080c14;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    #view-btn:hover { opacity: 0.85; }
+    #view-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .method-badge {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #8b949e;
+      padding: 4px 8px;
+      background: #161b22;
+      border-radius: 4px;
+      border: 1px solid #21262d;
+    }
+    .method-badge span { color: #58a6ff; font-weight: 600; }
+
+    .monument-note {
+      font-size: 0.72rem;
+      color: #8b949e;
+      line-height: 1.5;
+      padding: 8px;
+      background: #161b22;
+      border-left: 3px solid #f0c040;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      font-size: 0.68rem;
+      color: #484f58;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    /* ── Main sky area ── */
+    main {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #info-bar {
+      background: #0d1117;
+      border-bottom: 1px solid #21262d;
+      padding: 8px 20px;
+      font-size: 0.78rem;
+      color: #8b949e;
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    #info-bar strong { color: #f0c040; }
+
+    #sky-chart {
+      flex: 1;
+      min-height: 0;
+    }
+
+    #empty-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #484f58;
+      pointer-events: none;
+    }
+    #empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    #empty-state p { font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+<aside>
+  <div class="logo">
+    <h1>ARCHAEO SKY</h1>
+    <p>Ancient Night Sky Explorer</p>
+  </div>
+
+  <hr />
+
+  <!-- Location -->
+  <div>
+    <div class="section-label">Location</div>
+    <label>Ancient Site</label>
+    <select id="site-select">
+      <option value="">Custom coordinates</option>
+    </select>
+  </div>
+
+  <div id="custom-loc">
+    <div class="row2">
+      <div>
+        <label>Latitude</label>
+        <input type="number" id="lat" value="29.9792" step="0.0001" min="-90" max="90" />
+      </div>
+      <div>
+        <label>Longitude</label>
+        <input type="number" id="lon" value="31.1342" step="0.0001" min="-180" max="180" />
+      </div>
+    </div>
+  </div>
+
+  <div id="monument-note" class="monument-note" style="display:none"></div>
+
+  <hr />
+
+  <!-- Date & Time -->
+  <div>
+    <div class="section-label">Date &amp; Time</div>
+
+    <div class="slider-wrap">
+      <label>Year</label>
+      <div class="value-display" id="year-display">2,500 BC</div>
+      <input type="range" id="year-slider" min="-12000" max="2024" step="50" value="-2500" />
+    </div>
+
+    <div class="row2" style="margin-top:14px">
+      <div>
+        <label>Month</label>
+        <select id="month-select">
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3" selected>March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+      </div>
+      <div>
+        <label>Day</label>
+        <input type="number" id="day" value="20" min="1" max="31" />
+      </div>
+    </div>
+
+    <div class="slider-wrap" style="margin-top:14px">
+      <label>Hour (local)</label>
+      <div class="value-display" id="hour-display">22:00</div>
+      <input type="range" id="hour-slider" min="0" max="23.5" step="0.5" value="22" />
+    </div>
+  </div>
+
+  <hr />
+
+  <button id="view-btn">VIEW THE SKY</button>
+
+  <div id="method-badge" class="method-badge" style="display:none">
+    Calculation engine: <span id="method-label"></span>
+  </div>
+
+  <div class="sidebar-footer">
+    Star positions calculated using<br />
+    precession &amp; proper motion models.<br />
+    Accuracy degrades before ~5000 BC.
+  </div>
+</aside>
+
+<!-- Main sky panel -->
+<main>
+  <div id="info-bar" style="display:none">
+    <span><strong id="ib-site"></strong></span>
+    <span>JD: <strong id="ib-jd"></strong></span>
+    <span>LST: <strong id="ib-lst"></strong>°</span>
+    <span id="ib-visible"></span>
+  </div>
+
+  <div id="sky-chart"></div>
+
+  <div id="empty-state">
+    <div class="icon">✦</div>
+    <p>Select a site and press <em>View the Sky</em></p>
+  </div>
+</main>
+
+<script>
+  // ── Constellation colours (matches the Python visualiser) ──
+  const CONST_COLORS = {
+    'Orion':       '#4fc3f7',
+    'Canis Major': '#fff176',
+    'Carina':      '#ce93d8',
+    'Taurus':      '#ffb74d',
+    'Lyra':        '#80deea',
+    'Draco':       '#a5d6a7',
+    'Ursa Minor':  '#ef9a9a',
+    'Cygnus':      '#b39ddb',
+    'Boötes':      '#ff8a65',
+    'Leo':         '#f48fb1',
+    'Virgo':       '#c5e1a5',
+    'Scorpius':    '#ff5252',
+  };
+
+  function magToSize(mag) {
+    // Brighter (lower magnitude) = bigger dot
+    return Math.max(6, (5 - mag) * 5);
+  }
+
+  function formatYear(y) {
+    if (y < 0)  return Math.abs(y).toLocaleString() + ' BC';
+    if (y === 0) return '1 BC';
+    return y.toLocaleString() + ' AD';
+  }
+
+  function formatHour(h) {
+    const hh = Math.floor(h).toString().padStart(2, '0');
+    const mm = (h % 1 === 0.5) ? '30' : '00';
+    return `${hh}:${mm}`;
+  }
+
+  // ── Populate site dropdown ──
+  fetch('/api/sites')
+    .then(r => r.json())
+    .then(sites => {
+      const sel = document.getElementById('site-select');
+      Object.entries(sites).forEach(([name, data]) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        sel.appendChild(opt);
+      });
+      // Default to Great Pyramid
+      sel.value = 'Great Pyramid of Giza';
+      onSiteChange();
+    });
+
+  // ── Site dropdown change ──
+  function onSiteChange() {
+    const site = document.getElementById('site-select').value;
+    const customLoc = document.getElementById('custom-loc');
+    const noteEl = document.getElementById('monument-note');
+
+    if (site === '') {
+      customLoc.style.display = 'block';
+      noteEl.style.display = 'none';
+    } else {
+      customLoc.style.display = 'none';
+      // Show the monument note (fetch from cached sites data)
+      fetch('/api/sites')
+        .then(r => r.json())
+        .then(sites => {
+          if (sites[site]) {
+            noteEl.textContent = sites[site].note;
+            noteEl.style.display = 'block';
+          }
+        });
+    }
+  }
+  document.getElementById('site-select').addEventListener('change', onSiteChange);
+
+  // ── Slider display updates ──
+  document.getElementById('year-slider').addEventListener('input', e => {
+    document.getElementById('year-display').textContent = formatYear(+e.target.value);
+  });
+  document.getElementById('hour-slider').addEventListener('input', e => {
+    document.getElementById('hour-display').textContent = formatHour(+e.target.value);
+  });
+
+  // ── Main fetch & render ──
+  document.getElementById('view-btn').addEventListener('click', fetchAndRender);
+
+  function fetchAndRender() {
+    const btn = document.getElementById('view-btn');
+    btn.disabled = true;
+    btn.textContent = 'LOADING…';
+
+    const site  = document.getElementById('site-select').value;
+    const year  = document.getElementById('year-slider').value;
+    const month = document.getElementById('month-select').value;
+    const day   = document.getElementById('day').value;
+    const hour  = document.getElementById('hour-slider').value;
+    const lat   = document.getElementById('lat').value;
+    const lon   = document.getElementById('lon').value;
+
+    let url = `/api/stars?year=${year}&month=${month}&day=${day}&hour=${hour}`;
+    if (site) {
+      url += `&site=${encodeURIComponent(site)}`;
+    } else {
+      url += `&lat=${lat}&lon=${lon}`;
+    }
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        renderChart(data);
+        updateInfoBar(data);
+        document.getElementById('empty-state').style.display = 'none';
+
+        const badge = document.getElementById('method-badge');
+        document.getElementById('method-label').textContent = data.meta.method;
+        badge.style.display = 'block';
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Error fetching star data. See console for details.');
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.textContent = 'VIEW THE SKY';
+      });
+  }
+
+  function updateInfoBar(data) {
+    const bar = document.getElementById('info-bar');
+    bar.style.display = 'flex';
+
+    const yearStr = formatYear(data.meta.year);
+    const site = data.monument ? data.monument.name : `${data.meta.lat}°, ${data.meta.lon}°`;
+    document.getElementById('ib-site').textContent = `${site} | ${yearStr}`;
+    document.getElementById('ib-jd').textContent = data.meta.jd.toFixed(1);
+    document.getElementById('ib-lst').textContent = data.meta.lst.toFixed(2);
+
+    const visCount = Object.values(data.stars).filter(s => s.visible).length;
+    document.getElementById('ib-visible').textContent = `${visCount} stars visible`;
+  }
+
+  function renderChart(data) {
+    const entries = Object.entries(data.stars);
+    const visible = entries.filter(([, s]) => s.visible);
+    const hidden  = entries.filter(([, s]) => !s.visible);
+
+    const makeTrace = (starList, opacity) => ({
+      type: 'scatterpolar',
+      r:     starList.map(([, s]) => 90 - s.altitude),
+      theta: starList.map(([, s]) => s.azimuth),
+      mode:  'markers+text',
+      text:  starList.map(([name]) => name),
+      textposition: 'top center',
+      textfont: { color: 'rgba(200,210,220,' + opacity + ')', size: 8 },
+      marker: {
+        size:    starList.map(([, s]) => magToSize(s.magnitude)),
+        color:   starList.map(([, s]) => CONST_COLORS[s.constellation] || '#e0e0e0'),
+        opacity: opacity,
+        line:    { width: 0 },
+      },
+      customdata: starList.map(([, s]) => [
+        s.altitude.toFixed(1),
+        s.azimuth.toFixed(1),
+        s.constellation,
+        s.magnitude.toFixed(2),
+      ]),
+      hovertemplate:
+        '<b>%{text}</b><br>' +
+        '%{customdata[2]}<br>' +
+        'Alt: %{customdata[0]}°  Az: %{customdata[1]}°<br>' +
+        'Mag: %{customdata[3]}' +
+        '<extra></extra>',
+      showlegend: false,
+    });
+
+    const traces = [
+      makeTrace(visible, 0.95),
+      makeTrace(hidden,  0.18),   // dim stars below the horizon
+    ];
+
+    // Monument orientation line
+    if (data.monument) {
+      const az = data.monument.orientation_az;
+      traces.push({
+        type: 'scatterpolar',
+        r: [0, 90],
+        theta: [az, az],
+        mode: 'lines',
+        line: { color: '#f0c040', width: 2, dash: 'dash' },
+        hovertemplate: `<b>${data.monument.name}</b><br>Orientation: ${az}°<extra></extra>`,
+        showlegend: false,
+      });
+      // Opposite direction (faint dotted)
+      traces.push({
+        type: 'scatterpolar',
+        r: [0, 90],
+        theta: [(az + 180) % 360, (az + 180) % 360],
+        mode: 'lines',
+        line: { color: '#f0c040', width: 1, dash: 'dot' },
+        hoverinfo: 'skip',
+        showlegend: false,
+      });
+    }
+
+    const layout = {
+      polar: {
+        radialaxis: {
+          range: [0, 90],
+          tickvals: [30, 60, 90],
+          ticktext: ['60°', '30°', 'Horizon'],
+          tickfont: { color: '#8b949e', size: 9 },
+          gridcolor: '#21262d',
+          linecolor: '#21262d',
+          showline: false,
+        },
+        angularaxis: {
+          tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
+          ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+          tickfont: { color: '#c9d1d9', size: 12, family: 'Segoe UI, sans-serif' },
+          direction: 'clockwise',
+          rotation: 90,
+          gridcolor: '#21262d',
+          linecolor: '#30363d',
+        },
+        bgcolor: '#0d1117',
+      },
+      paper_bgcolor: '#080c14',
+      plot_bgcolor:  '#080c14',
+      font: { color: '#c9d1d9', family: 'Segoe UI, sans-serif' },
+      margin: { t: 40, b: 40, l: 60, r: 60 },
+      showlegend: false,
+    };
+
+    Plotly.react('sky-chart', traces, layout, {
+      responsive: true,
+      displayModeBar: false,
+    });
+  }
+</script>
+</body>
+</html>

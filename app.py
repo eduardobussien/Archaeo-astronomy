@@ -3,16 +3,16 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from alignment import calculate_alignments
-from data import MONUMENTS
+from data import MONUMENTS, STARS
 
 app = Flask(__name__)
 
 
 @app.route('/')
 def index():
-    return jsonify({'status': 'ok', 'message': 'Archaeo-Astronomy API is running'})
+    return render_template('index.html')
 
 
 @app.route('/api/stars')
@@ -72,9 +72,11 @@ def stars():
         'monument': monument_info,
         'stars': {
             name: {
-                'altitude': float(d['altitude']),
-                'azimuth':  float(d['azimuth']),
-                'visible':  bool(d['visible']),
+                'altitude':      float(d['altitude']),
+                'azimuth':       float(d['azimuth']),
+                'visible':       bool(d['visible']),
+                'magnitude':     STARS[name]['mag'],
+                'constellation': STARS[name]['constellation'],
             }
             for name, d in results['stars'].items()
         },
