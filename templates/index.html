@@ -151,6 +151,31 @@
       line-height: 1.6;
     }
 
+    .preset-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 8px;
+    }
+    .preset-card:hover {
+      border-color: #f0c040;
+      background: #1c2128;
+    }
+    .preset-card h4 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #e6edf3;
+      margin-bottom: 3px;
+    }
+    .preset-card p {
+      font-size: 0.72rem;
+      color: #8b949e;
+      line-height: 1.4;
+    }
+
     /* ── Main sky area ── */
     main {
       display: flex;
@@ -276,6 +301,14 @@
     Calculation engine: <span id="method-label"></span>
   </div>
 
+  <hr />
+
+  <!-- Try This presets -->
+  <div>
+    <div class="section-label">Try This</div>
+    <div id="presets-list"></div>
+  </div>
+
   <div class="sidebar-footer">
     Star positions calculated using<br />
     precession &amp; proper motion models.<br />
@@ -333,6 +366,61 @@
     const mm = (h % 1 === 0.5) ? '30' : '00';
     return `${hh}:${mm}`;
   }
+
+  // ── Preset examples ──
+  const PRESETS = [
+    {
+      title: 'Orion Correlation',
+      desc:  "Orion's Belt rises due east over Giza — Bauval's 10,500 BC theory",
+      site:  'Great Pyramid of Giza',
+      year: -10499, month: 3, day: 20, hour: 22,
+    },
+    {
+      title: 'Thuban, the Pyramid Star',
+      desc:  'The north star of 2700 BC, locked above the pyramid north shaft',
+      site:  'Great Pyramid of Giza',
+      year: -2700, month: 3, day: 20, hour: 22,
+    },
+    {
+      title: 'Pleiades at Teotihuacan',
+      desc:  "Pleiades sets at the pyramid's exact orientation azimuth, 150 AD",
+      site:  'Pyramid of the Sun (Teotihuacan)',
+      year: 150, month: 5, day: 17, hour: 5,
+    },
+    {
+      title: 'Orion at Stonehenge',
+      desc:  'Orion dominates the winter sky over Stonehenge, 2500 BC',
+      site:  'Stonehenge',
+      year: -2500, month: 12, day: 21, hour: 22,
+    },
+    {
+      title: 'Sirius and the Nile Flood',
+      desc:  'Sirius rises at dawn — Egyptian New Year and the start of the flood, 2780 BC',
+      site:  'Great Pyramid of Giza',
+      year: -2780, month: 7, day: 17, hour: 5,
+    },
+  ];
+
+  function applyPreset(preset) {
+    document.getElementById('site-select').value = preset.site;
+    onSiteChange();
+    document.getElementById('year-slider').value = preset.year;
+    document.getElementById('year-display').textContent = formatYear(preset.year);
+    document.getElementById('month-select').value = preset.month;
+    document.getElementById('day').value = preset.day;
+    document.getElementById('hour-slider').value = preset.hour;
+    document.getElementById('hour-display').textContent = formatHour(preset.hour);
+    fetchAndRender();
+  }
+
+  const presetsList = document.getElementById('presets-list');
+  PRESETS.forEach(preset => {
+    const card = document.createElement('div');
+    card.className = 'preset-card';
+    card.innerHTML = `<h4>${preset.title}</h4><p>${preset.desc}</p>`;
+    card.addEventListener('click', () => applyPreset(preset));
+    presetsList.appendChild(card);
+  });
 
   // ── Populate site dropdown ──
   fetch('/api/sites')
