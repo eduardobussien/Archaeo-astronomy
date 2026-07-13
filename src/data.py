@@ -165,4 +165,68 @@ MONUMENTS = {
             'Equinox serpent-shadow effect on the north staircase.'
         ),
     },
+    'Göbekli Tepe': {
+        'lat': 37.2232, 'lon': 38.9225,
+        'orientation_az': 165.0,
+        'note': (
+            'Oldest known monumental complex (~9600 BC), predating agriculture. '
+            'Enclosure D pillars may have targeted Sirius rising (~165°) at foundation date.'
+        ),
+    },
+    'Newgrange': {
+        'lat': 53.6947, 'lon': -6.4753,
+        'orientation_az': 136.4,
+        'note': (
+            'Neolithic passage tomb (~3200 BC). The roof-box admits a narrow beam of '
+            'winter solstice sunrise light that illuminates the inner chamber for 17 minutes.'
+        ),
+    },
+    'Avebury': {
+        'lat': 51.4292, 'lon': -1.8536,
+        'orientation_az': 50.0,
+        'note': (
+            'Largest megalithic stone circle in the world (~2600 BC). '
+            'The Kennet Avenue leads toward midsummer sunrise (~50°) from the southern entrance.'
+        ),
+    },
+    'Carnac Stones': {
+        'lat': 47.5989, 'lon': -2.9539,
+        'orientation_az': 83.0,
+        'note': (
+            'Over 3,000 menhirs arranged in parallel rows (~4500-3300 BC). '
+            'The Le Menec alignment runs roughly east (~83°), broadly toward equinox sunrise.'
+        ),
+    },
+    'Mnajdra Temple (Malta)': {
+        'lat': 35.8269, 'lon': 14.4367,
+        'orientation_az': 94.0,
+        'note': (
+            'Neolithic temple (~3600 BC), among the oldest free-standing structures on Earth. '
+            'Lower temple doorway precisely frames equinox sunrise; solstice sunlight hits side walls.'
+        ),
+    },
+    'Machu Picchu': {
+        'lat': -13.1631, 'lon': -72.5449,
+        'orientation_az': 65.0,
+        'note': (
+            'Inca citadel (~1450 AD). The Torreon (Temple of the Sun) aligns with the '
+            'June solstice sunrise (~65°). The Intihuatana stone served as a solar calendar.'
+        ),
+    },
+    'Tiwanaku (Kalasasaya)': {
+        'lat': -16.5544, 'lon': -68.6742,
+        'orientation_az': 89.0,
+        'note': (
+            'Pre-Inca ceremonial center (~500-900 AD, possibly older). '
+            'The eastern gate of the Kalasasaya temple is precisely aligned with the equinox sunrise.'
+        ),
+    },
+    'Baalbek (Temple of Jupiter)': {
+        'lat': 34.2036, 'lon': 36.2100,
+        'orientation_az': 62.0,
+        'note': (
+            'Massive Roman temple complex built on a far older Phoenician foundation. '
+            'The temple axis (~62°) aligns northeast; the monumental podium stones remain unexplained.'
+        ),
+    },
 }
