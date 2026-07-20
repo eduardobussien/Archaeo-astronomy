@@ -558,7 +558,7 @@
       mode:  'markers+text',
       text:  starList.map(([name]) => name),
       textposition: 'top center',
-      textfont: { color: 'rgba(200,210,220,' + opacity + ')', size: 8 },
+      textfont: { color: 'rgba(200,210,220,' + opacity + ')', size: 10 },
       marker: {
         size:    starList.map(([, s]) => magToSize(s.magnitude)),
         color:   starList.map(([, s]) => CONST_COLORS[s.constellation] || '#e0e0e0'),
@@ -582,7 +582,7 @@
 
     const traces = [
       makeTrace(visible, 0.95),
-      makeTrace(hidden,  0.18),   // dim stars below the horizon
+      { ...makeTrace(hidden, 0.18), mode: 'markers' },  // no labels for below-horizon stars
     ];
 
     // Monument orientation line
