@@ -133,6 +133,16 @@
     }
     .method-badge span { color: #58a6ff; font-weight: 600; }
 
+    .sky-description {
+      font-size: 0.78rem;
+      color: #c9d1d9;
+      line-height: 1.6;
+      padding: 10px 12px;
+      background: #161b22;
+      border-left: 3px solid #f0c040;
+      border-radius: 0 4px 4px 0;
+    }
+
     .monument-note {
       font-size: 0.72rem;
       color: #8b949e;
@@ -301,6 +311,8 @@
     Calculation engine: <span id="method-label"></span>
   </div>
 
+  <div id="sky-description" class="sky-description" style="display:none"></div>
+
   <hr />
 
   <!-- Try This presets -->
@@ -361,6 +373,45 @@
   function magToSize(mag) {
     // Brighter (lower magnitude) = bigger dot
     return Math.max(6, (5 - mag) * 5);
+  }
+
+  function azToCardinal(az) {
+    const dirs = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+    return dirs[Math.round(az / 45) % 8];
+  }
+
+  function updateDescription(data) {
+    const el = document.getElementById('sky-description');
+    const visible = Object.entries(data.stars).filter(([, s]) => s.visible);
+
+    if (visible.length === 0) {
+      el.textContent = 'No catalog stars are above the horizon at this time.';
+      el.style.display = 'block';
+      return;
+    }
+
+    const byBrightness = [...visible].sort(([, a], [, b]) => a.magnitude - b.magnitude);
+    const top3 = byBrightness.slice(0, 3).map(([name, s]) => `${name} in the ${azToCardinal(s.azimuth)}`);
+
+    let text = `${visible.length} stars above the horizon. Brightest: ${top3.join(', ')}.`;
+
+    if (data.monument) {
+      const az = data.monument.orientation_az;
+      let nearest = null, minDiff = Infinity;
+      for (const [name, s] of visible) {
+        let diff = Math.abs(s.azimuth - az);
+        if (diff > 180) diff = 360 - diff;
+        if (diff < minDiff) { minDiff = diff; nearest = name; }
+      }
+      if (nearest && minDiff <= 15) {
+        text += ` The monument aligns ${azToCardinal(az)} — near ${nearest} (${minDiff.toFixed(0)}° away).`;
+      } else {
+        text += ` The monument faces ${azToCardinal(az)}.`;
+      }
+    }
+
+    el.textContent = text;
+    el.style.display = 'block';
   }
 
   function formatYear(y) {
@@ -524,6 +575,7 @@
       .then(data => {
         renderChart(data);
         updateInfoBar(data);
+        updateDescription(data);
         document.getElementById('empty-state').style.display = 'none';
 
         const badge = document.getElementById('method-badge');
