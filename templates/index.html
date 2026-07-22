@@ -457,6 +457,11 @@
       }
     }
 
+    const sun = data.planets && data.planets['Sun'];
+    if (sun && sun.visible) {
+      text += ' The Sun is above the horizon — this would be daytime.';
+    }
+
     el.textContent = text;
     el.style.display = 'block';
   }
@@ -653,6 +658,93 @@
     document.getElementById('ib-visible').textContent = `${visCount} stars visible`;
   }
 
+  // Pairs of stars to connect with lines, grouped by constellation
+  const CONSTELLATION_LINES = {
+    'Orion':       [['Mintaka','Alnilam'], ['Alnilam','Alnitak'],   // belt
+                    ['Betelgeuse','Alnitak'], ['Rigel','Mintaka']],  // body
+    'Taurus':      [['Aldebaran','Alcyone']],
+    'Gemini':      [['Castor','Pollux']],
+    'Canis Major': [['Sirius','Adhara']],
+    'Centaurus':   [['Alpha Centauri','Hadar']],
+    'Crux':        [['Acrux','Mimosa']],
+  };
+
+  function makeConstellationLines(starsData) {
+    const lineTraces = [];
+    for (const [constName, pairs] of Object.entries(CONSTELLATION_LINES)) {
+      for (const [a, b] of pairs) {
+        const s1 = starsData[a];
+        const s2 = starsData[b];
+        if (!s1 || !s2) continue;
+        const opacity = (s1.visible && s2.visible) ? 0.35 : 0.1;
+        lineTraces.push({
+          type: 'scatterpolar',
+          r:     [90 - s1.altitude, 90 - s2.altitude],
+          theta: [s1.azimuth,       s2.azimuth],
+          mode:  'lines',
+          line:  { color: CONST_COLORS[constName] || '#555', width: 1.2 },
+          opacity,
+          hoverinfo:  'skip',
+          showlegend: false,
+        });
+      }
+    }
+    return lineTraces;
+  }
+
+  const PLANET_STYLE = {
+    'Sun':     { color: '#FFD700', size: 26 },
+    'Moon':    { color: '#E8E8CC', size: 20 },
+    'Mercury': { color: '#A9A9A9', size:  9 },
+    'Venus':   { color: '#FFFACD', size: 16 },
+    'Mars':    { color: '#E05050', size: 12 },
+    'Jupiter': { color: '#DEB887', size: 15 },
+    'Saturn':  { color: '#DAA520', size: 13 },
+  };
+
+  const PLANET_NOTES = {
+    'Sun':     'Above the horizon means daytime — stars would not be visible to the naked eye. Solstice and equinox sunrise/sunset alignments define many ancient monuments.',
+    'Moon':    "The Moon's phases governed ancient calendars. A full Moon is bright enough to read by and washes out all but the brightest stars.",
+    'Mercury': 'Always within 28° of the Sun — hard to observe. Ancient Egyptians may have recorded it as two separate objects: a morning star and an evening star.',
+    'Venus':   'The brightest planet, outshining everything except the Sun and Moon. The Chichen Itza pyramid aligns to its extreme northern and southern positions.',
+    'Mars':    'Its red color and retrograde loops puzzled ancient astronomers. Babylonians predicted its opposition cycles to within a few days.',
+    'Jupiter': 'Brightest planet when Venus is below the horizon. Babylonian astronomers tracked its position for centuries to predict events.',
+    'Saturn':  'The slowest naked-eye planet — 29 years per orbit. Ancient cultures across the world saw it as a symbol of time and fate.',
+  };
+
+  function makePlanetTraces(planets) {
+    if (!planets || !Object.keys(planets).length) return [];
+    const visible = Object.entries(planets).filter(([, p]) =>  p.visible);
+    const hidden  = Object.entries(planets).filter(([, p]) => !p.visible);
+
+    const makeTrace = (list, opacity) => ({
+      type: 'scatterpolar',
+      r:     list.map(([, p]) => 90 - p.altitude),
+      theta: list.map(([, p]) => p.azimuth),
+      mode:  'markers+text',
+      text:  list.map(([name]) => name),
+      textposition: 'top center',
+      textfont: { color: `rgba(255,240,180,${opacity})`, size: 10 },
+      marker: {
+        size:    list.map(([name]) => (PLANET_STYLE[name] || {size: 10}).size),
+        color:   list.map(([name]) => (PLANET_STYLE[name] || {color: '#fff'}).color),
+        symbol: 'diamond',
+        opacity,
+        line: { color: 'rgba(255,255,255,0.4)', width: 1 },
+      },
+      customdata: list.map(([name, p]) => [
+        p.altitude.toFixed(1), p.azimuth.toFixed(1), 'Planet', '',
+      ]),
+      hovertemplate: '<b>%{text}</b><br>Planet<br>Alt: %{customdata[0]}°  Az: %{customdata[1]}°<extra></extra>',
+      showlegend: false,
+    });
+
+    const traces = [];
+    if (visible.length) traces.push(makeTrace(visible, 0.95));
+    if (hidden.length)  traces.push({ ...makeTrace(hidden, 0.2), mode: 'markers' });
+    return traces;
+  }
+
   const STAR_NOTES = {
     'Sirius':         'The brightest star in the sky. Its heliacal rising marked the Egyptian New Year and the annual Nile flood.',
     'Polaris':        'The current north star, within 1° of the celestial pole. It has only held this role since around 1100 AD.',
@@ -722,8 +814,10 @@
     });
 
     const traces = [
+      ...makeConstellationLines(data.stars),
+      ...makePlanetTraces(data.planets || {}),
       makeTrace(visible, 0.95),
-      { ...makeTrace(hidden, 0.18), mode: 'markers' },  // no labels for below-horizon stars
+      { ...makeTrace(hidden, 0.18), mode: 'markers' },
     ];
 
     // Monument orientation line
@@ -793,15 +887,17 @@
         const cd   = pt.customdata;
         if (!name || !cd) return;
 
-        const [alt, az, constellation, mag] = cd;
+        const [alt, az, type, mag] = cd;
+        const isPlanet = type === 'Planet';
+
         document.getElementById('sc-name').textContent  = name;
-        document.getElementById('sc-const').textContent = constellation;
+        document.getElementById('sc-const').textContent = isPlanet ? 'Planet' : type;
         document.getElementById('sc-alt').textContent   = alt + '°';
         document.getElementById('sc-az').textContent    = az + '°';
-        document.getElementById('sc-mag').textContent   = mag;
+        document.getElementById('sc-mag').textContent   = isPlanet ? '' : mag;
 
         const noteEl = document.getElementById('sc-note');
-        const note   = STAR_NOTES[name] || '';
+        const note   = isPlanet ? (PLANET_NOTES[name] || '') : (STAR_NOTES[name] || '');
         noteEl.textContent    = note;
         noteEl.style.display  = note ? 'block' : 'none';
 

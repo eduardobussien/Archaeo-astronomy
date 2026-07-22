@@ -3,7 +3,7 @@ import math
 import warnings
 import numpy as np
 from astropy.time import Time
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz
+from astropy.coordinates import SkyCoord, EarthLocation, AltAz, get_body, solar_system_ephemeris
 import astropy.units as u
 from astropy.utils.exceptions import AstropyWarning
 import erfa
@@ -136,6 +136,26 @@ def _calculate_manual(lat, lon, jd):
     return stars_out, lst
 
 
+_PLANET_NAMES = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn']
+
+def _calculate_planets(obs_time, loc, altaz_frame):
+    """Return altitude/azimuth for the Sun, Moon, and five naked-eye planets."""
+    planets = {}
+    try:
+        with solar_system_ephemeris.set('builtin'):
+            for name in _PLANET_NAMES:
+                body  = get_body(name, obs_time, location=loc)
+                altaz = body.transform_to(altaz_frame)
+                planets[name.capitalize()] = {
+                    'altitude': float(altaz.alt.degree),
+                    'azimuth':  float(altaz.az.degree),
+                    'visible':  bool(altaz.alt.degree > 0),
+                }
+    except Exception:
+        pass  # silently skip if date is outside the builtin ephemeris range
+    return planets
+
+
 def calculate_alignments(lat, lon, year, month, day, hour):
     """
     Compute altitude and azimuth for every star in the catalog.
@@ -175,11 +195,12 @@ def calculate_alignments(lat, lon, year, month, day, hour):
                 'visible':  altaz.alt.degree > 0,
             }
 
-        return {'jd': jd, 'lst': lst, 'stars': stars_out, 'method': 'astropy'}
+        planets = _calculate_planets(obs_time, loc, altaz_frame)
+        return {'jd': jd, 'lst': lst, 'stars': stars_out, 'planets': planets, 'method': 'astropy'}
 
     except erfa.ErfaError:
         stars_out, lst = _calculate_manual(lat, lon, jd)
-        return {'jd': jd, 'lst': lst, 'stars': stars_out, 'method': 'manual'}
+        return {'jd': jd, 'lst': lst, 'stars': stars_out, 'planets': {}, 'method': 'manual'}
 
 
 def check_alignments(star_results, orientation_az, threshold_deg=2.0):

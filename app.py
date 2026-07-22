@@ -80,6 +80,14 @@ def stars():
             }
             for name, d in results['stars'].items()
         },
+        'planets': {
+            name: {
+                'altitude': float(d['altitude']),
+                'azimuth':  float(d['azimuth']),
+                'visible':  bool(d['visible']),
+            }
+            for name, d in results.get('planets', {}).items()
+        },
     })
 
 
