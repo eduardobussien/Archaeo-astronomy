@@ -143,6 +143,42 @@
       border-radius: 0 4px 4px 0;
     }
 
+    .star-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .star-card-name {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #e6edf3;
+      margin-bottom: 2px;
+    }
+    .star-card-constellation {
+      font-size: 0.7rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .star-card-stats {
+      display: flex;
+      gap: 12px;
+      font-size: 0.75rem;
+      color: #8b949e;
+      margin-bottom: 8px;
+    }
+    .star-card-stats strong { color: #c9d1d9; }
+    .star-card-note {
+      font-size: 0.73rem;
+      color: #8b949e;
+      line-height: 1.5;
+      font-style: italic;
+      border-top: 1px solid #21262d;
+      padding-top: 8px;
+    }
+
     .monument-note {
       font-size: 0.72rem;
       color: #8b949e;
@@ -312,6 +348,17 @@
   </div>
 
   <div id="sky-description" class="sky-description" style="display:none"></div>
+
+  <div id="star-card" class="star-card" style="display:none">
+    <div class="star-card-name" id="sc-name"></div>
+    <div class="star-card-constellation" id="sc-const"></div>
+    <div class="star-card-stats">
+      <span>Alt <strong id="sc-alt"></strong></span>
+      <span>Az <strong id="sc-az"></strong></span>
+      <span>Mag <strong id="sc-mag"></strong></span>
+    </div>
+    <div class="star-card-note" id="sc-note" style="display:none"></div>
+  </div>
 
   <hr />
 
@@ -606,6 +653,40 @@
     document.getElementById('ib-visible').textContent = `${visCount} stars visible`;
   }
 
+  const STAR_NOTES = {
+    'Sirius':         'The brightest star in the sky. Its heliacal rising marked the Egyptian New Year and the annual Nile flood.',
+    'Polaris':        'The current north star, within 1° of the celestial pole. It has only held this role since around 1100 AD.',
+    'Thuban':         'The north star of the pyramid era (~2700 BC). It once shone directly down the descending passage of the Great Pyramid.',
+    'Vega':           'Will become the north star around 13,700 AD due to precession. The brightest star in the summer northern sky.',
+    'Antares':        'One of the four Royal Stars of Persia. Its name means "rival of Mars" — both are red and similarly bright.',
+    'Aldebaran':      'One of the four Royal Stars of Persia, the "Eye of the Bull." Marks the face of Taurus.',
+    'Regulus':        'One of the four Royal Stars of Persia, the "Heart of the Lion." Almost exactly on the ecliptic.',
+    'Fomalhaut':      'One of the four Royal Stars of Persia, the "Autumn Star." It has a visible debris disk hinting at planets.',
+    'Spica':          'By comparing its position over decades, Hipparchus discovered the precession of the equinoxes in ~127 BC.',
+    'Betelgeuse':     'A red supergiant nearing the end of its life. It will explode as a supernova within the next 100,000 years.',
+    'Rigel':          'A blue supergiant 60,000× more luminous than the Sun. Used for celestial navigation across many cultures.',
+    'Canopus':        'Second brightest star in the sky. Used by ancient Egyptians for navigation and by NASA for spacecraft orientation today.',
+    'Arcturus':       'One of the fastest-moving bright stars. Its light was used to switch on the lights at the 1933 Chicago World\'s Fair.',
+    'Alpha Centauri': 'The closest star system to our Sun at 4.37 light-years. Likely hosts rocky planets.',
+    'Hadar':          'Forms the "Southern Pointers" with Alpha Centauri, guiding navigators to the Southern Cross.',
+    'Deneb':          'Despite looking similar to Vega, Deneb is ~2,600 light-years away — one of the most luminous stars known.',
+    'Capella':        'Known as the "Goat Star," associated with the goat Amalthea who nursed Zeus in Greek myth.',
+    'Procyon':        'Its name means "before the dog" in Greek — it rises just minutes before Sirius, the Dog Star.',
+    'Alnitak':        'Eastern star of Orion\'s Belt. Robert Bauval linked it to the easternmost pyramid at Giza.',
+    'Alnilam':        'Middle star of Orion\'s Belt, roughly 2,000 light-years away — the most distant of the three.',
+    'Mintaka':        'Western star of Orion\'s Belt. It sits almost exactly on the celestial equator.',
+    'Alcyone':        'Brightest of the Pleiades (Seven Sisters). Their rising and setting marked the agricultural calendar in cultures worldwide.',
+    'Acrux':          'Brightest star in the Southern Cross. Used for southern hemisphere navigation for thousands of years.',
+    'Mimosa':         'Second brightest star in the Southern Cross, essential for finding true south without a compass.',
+    'Dubhe':          'The outer pointer star of the Big Dipper, which draws a line directly to Polaris.',
+    'Adhara':         'Second brightest star in Canis Major after Sirius. In the far ultraviolet it is the brightest star in the sky.',
+    'Achernar':       'Marks the southern end of the river Eridanus. A key navigation star for cultures of the southern hemisphere.',
+    'Castor':         'A sextuple star system — six stars orbiting each other — that appears as one bright point to the eye.',
+    'Pollux':         'The brighter of the Gemini twins. It has a confirmed planet, Pollux b, discovered in 2006.',
+  };
+
+  let starClickWired = false;
+
   function renderChart(data) {
     const entries = Object.entries(data.stars);
     const visible = entries.filter(([, s]) => s.visible);
@@ -703,6 +784,31 @@
       responsive: true,
       displayModeBar: false,
     });
+
+    if (!starClickWired) {
+      document.getElementById('sky-chart').on('plotly_click', function(eventData) {
+        if (!eventData.points.length) return;
+        const pt = eventData.points[0];
+        const name = pt.text;
+        const cd   = pt.customdata;
+        if (!name || !cd) return;
+
+        const [alt, az, constellation, mag] = cd;
+        document.getElementById('sc-name').textContent  = name;
+        document.getElementById('sc-const').textContent = constellation;
+        document.getElementById('sc-alt').textContent   = alt + '°';
+        document.getElementById('sc-az').textContent    = az + '°';
+        document.getElementById('sc-mag').textContent   = mag;
+
+        const noteEl = document.getElementById('sc-note');
+        const note   = STAR_NOTES[name] || '';
+        noteEl.textContent    = note;
+        noteEl.style.display  = note ? 'block' : 'none';
+
+        document.getElementById('star-card').style.display = 'block';
+      });
+      starClickWired = true;
+    }
   }
 </script>
 </body>
