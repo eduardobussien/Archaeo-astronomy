@@ -137,22 +137,23 @@ def _calculate_manual(lat, lon, jd):
 
 
 _PLANET_NAMES = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn']
+solar_system_ephemeris.set('builtin')   # set once at import; safe across threads
+
 
 def _calculate_planets(obs_time, loc, altaz_frame):
     """Return altitude/azimuth for the Sun, Moon, and five naked-eye planets."""
     planets = {}
-    try:
-        with solar_system_ephemeris.set('builtin'):
-            for name in _PLANET_NAMES:
-                body  = get_body(name, obs_time, location=loc)
-                altaz = body.transform_to(altaz_frame)
-                planets[name.capitalize()] = {
-                    'altitude': float(altaz.alt.degree),
-                    'azimuth':  float(altaz.az.degree),
-                    'visible':  bool(altaz.alt.degree > 0),
-                }
-    except Exception:
-        pass  # silently skip if date is outside the builtin ephemeris range
+    for name in _PLANET_NAMES:
+        try:
+            body  = get_body(name, obs_time, location=loc)
+            altaz = body.transform_to(altaz_frame)
+            planets[name.capitalize()] = {
+                'altitude': float(altaz.alt.degree),
+                'azimuth':  float(altaz.az.degree),
+                'visible':  bool(altaz.alt.degree > 0),
+            }
+        except Exception:
+            pass  # skip bodies outside the builtin ephemeris range
     return planets
 
 

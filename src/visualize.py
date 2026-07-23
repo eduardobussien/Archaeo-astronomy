@@ -16,18 +16,26 @@ warnings.simplefilter('ignore', category=erfa.ErfaWarning)
 
 # One color per constellation group
 CONSTELLATION_COLORS = {
-    'Orion':       '#4fc3f7',   # sky blue
-    'Canis Major': '#fff176',   # yellow
-    'Carina':      '#ce93d8',   # lavender
-    'Taurus':      '#ffb74d',   # orange
-    'Lyra':        '#80deea',   # cyan
-    'Draco':       '#a5d6a7',   # green
-    'Ursa Minor':  '#ef9a9a',   # pink
-    'Cygnus':      '#b39ddb',   # purple
-    'Boötes':      '#ff8a65',   # deep orange
-    'Leo':         '#f48fb1',   # rose
-    'Virgo':       '#c5e1a5',   # light green
-    'Scorpius':    '#ff5252',   # red
+    'Orion':             '#4fc3f7',   # sky blue
+    'Canis Major':       '#fff176',   # yellow
+    'Carina':            '#ce93d8',   # lavender
+    'Taurus':            '#ffb74d',   # orange
+    'Lyra':              '#80deea',   # cyan
+    'Draco':             '#a5d6a7',   # green
+    'Ursa Minor':        '#ef9a9a',   # pink
+    'Cygnus':            '#b39ddb',   # purple
+    'Boötes':            '#ff8a65',   # deep orange
+    'Leo':               '#f48fb1',   # rose
+    'Virgo':             '#c5e1a5',   # light green
+    'Scorpius':          '#ff5252',   # red
+    'Auriga':            '#ffc107',   # amber
+    'Gemini':            '#b3e5fc',   # light blue
+    'Canis Minor':       '#ccff90',   # light green
+    'Eridanus':          '#78909c',   # blue-grey
+    'Piscis Austrinus':  '#00bcd4',   # teal
+    'Centaurus':         '#f06292',   # pink
+    'Crux':              '#ffffff',   # white
+    'Ursa Major':        '#7986cb',   # indigo
 }
 
 DEFAULT_COLOR = '#e0e0e0'
