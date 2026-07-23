@@ -169,10 +169,12 @@ def calculate_alignments(lat, lon, year, month, day, hour):
         stars   - {name: {altitude, azimuth, visible}} for each star
         method  - 'astropy' or 'manual' (indicates which engine was used)
     """
-    jd = _date_to_jd(year, month, day, hour)
+    # Convert local mean solar time to UT (the user picks local time; lon/15 is the offset)
+    hour_ut = hour - lon / 15.0
+    jd = _date_to_jd(year, month, day, hour_ut)
 
     try:
-        obs_time  = get_observation_time(year, month, day, hour)
+        obs_time  = get_observation_time(year, month, day, hour_ut)
         loc       = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
         altaz_frame = AltAz(obstime=obs_time, location=loc)
         lst = obs_time.sidereal_time('mean', longitude=loc.lon).degree
