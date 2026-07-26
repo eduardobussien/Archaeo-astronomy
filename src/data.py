@@ -196,6 +196,207 @@ STARS = {
         'pm_ra': -134.11,  'pm_dec':  -34.72,
         'mag': 1.79,  'constellation': 'Ursa Major',
     },
+
+    # --- Aquila ---
+    'Altair': {                                          # 12th brightest star; in Chinese myth the Cowherd star, separated from Vega by the Milky Way
+        'ra': 297.696,  'dec':   8.868, 'dist':   5.13,
+        'pm_ra':  536.82,  'pm_dec':  385.54,
+        'mag': 0.77,  'constellation': 'Aquila',
+    },
+
+    # --- Gemini (addition) ---
+    'Alhena': {                                          # Marks Gemini's foot; "the brand on a camel's neck" in Arabic
+        'ra':  99.428,  'dec':  16.399, 'dist':  34.0,
+        'pm_ra':    3.06,  'pm_dec':  -67.26,
+        'mag': 1.93,  'constellation': 'Gemini',
+    },
+
+    # --- Canis Major (additions) ---
+    'Wezen': {                                           # "The Weight" — a yellow-white supergiant 10,000× more luminous than the Sun
+        'ra': 107.098,  'dec': -26.393, 'dist': 542.0,
+        'pm_ra':   -2.73,  'pm_dec':    3.02,
+        'mag': 1.84,  'constellation': 'Canis Major',
+    },
+    'Mirzam': {                                          # "The Announcer" — rises just before Sirius, heralding the brightest star
+        'ra':  95.675,  'dec': -17.956, 'dist': 153.0,
+        'pm_ra':   -3.55,  'pm_dec':   -0.61,
+        'mag': 1.98,  'constellation': 'Canis Major',
+    },
+
+    # --- Carina (additions) ---
+    'Avior': {                                           # Used in celestial navigation; marks the keel of the mythical ship Argo
+        'ra': 125.628,  'dec': -59.510, 'dist': 200.0,
+        'pm_ra':  -25.63,  'pm_dec':   22.72,
+        'mag': 1.86,  'constellation': 'Carina',
+    },
+    'Miaplacidus': {                                     # Used by ancient Polynesian navigators; second brightest in Carina
+        'ra': 138.300,  'dec': -69.717, 'dist':  34.1,
+        'pm_ra': -157.66,  'pm_dec':  108.91,
+        'mag': 1.67,  'constellation': 'Carina',
+    },
+
+    # --- Vela ---
+    'Regor': {                                           # Brightest Wolf-Rayet star visible to the naked eye; once part of the ship Argo
+        'ra': 122.383,  'dec': -47.337, 'dist': 260.0,
+        'pm_ra':   -6.16,  'pm_dec':   10.14,
+        'mag': 1.74,  'constellation': 'Vela',
+    },
+    'Suhail': {                                          # "The Bright One of the Ship" — used by Arab navigators of the Indian Ocean
+        'ra': 136.999,  'dec': -43.433, 'dist': 168.0,
+        'pm_ra':  -23.21,  'pm_dec':   14.29,
+        'mag': 2.21,  'constellation': 'Vela',
+    },
+
+    # --- Puppis ---
+    'Naos': {                                            # One of the hottest, most luminous naked-eye stars — a rare O-type supergiant
+        'ra': 120.896,  'dec': -40.003, 'dist': 335.0,
+        'pm_ra':  -30.82,  'pm_dec':   16.77,
+        'mag': 2.25,  'constellation': 'Puppis',
+    },
+
+    # --- Hydra ---
+    'Alphard': {                                         # "The Solitary One" — no bright neighbors; the Heart of the Sea Serpent
+        'ra': 141.897,  'dec':  -8.658, 'dist':  54.0,
+        'pm_ra':  -14.49,  'pm_dec':   33.25,
+        'mag': 1.98,  'constellation': 'Hydra',
+    },
+
+    # --- Aries ---
+    'Hamal': {                                           # The vernal equinox pointed here 2000 years ago, giving Aries its place as first sign
+        'ra':  31.793,  'dec':  23.462, 'dist':  20.2,
+        'pm_ra':  188.55,  'pm_dec': -148.08,
+        'mag': 2.00,  'constellation': 'Aries',
+    },
+
+    # --- Perseus ---
+    'Mirfak': {                                          # Heart of Perseus — the hero who slew Medusa and rescued Andromeda
+        'ra':  51.081,  'dec':  49.861, 'dist': 155.0,
+        'pm_ra':   24.11,  'pm_dec':  -26.01,
+        'mag': 1.79,  'constellation': 'Perseus',
+    },
+    'Algol': {                                           # "The Demon Star" — its eerie dimming every 2.87 days was noticed and feared across cultures
+        'ra':  47.042,  'dec':  40.956, 'dist':  28.2,
+        'pm_ra':    2.39,  'pm_dec':   -1.44,
+        'mag': 2.09,  'constellation': 'Perseus',
+    },
+
+    # --- Sagittarius ---
+    'Kaus Australis': {                                  # Brightest in Sagittarius; the Milky Way's galactic core rises directly behind this star
+        'ra': 276.043,  'dec': -34.385, 'dist':  44.5,
+        'pm_ra':  121.17,  'pm_dec': -204.12,
+        'mag': 1.79,  'constellation': 'Sagittarius',
+    },
+    'Nunki': {                                           # Babylonian "Yoke of the Sea" — they used it to predict flooding of the Euphrates
+        'ra': 283.816,  'dec': -26.297, 'dist':  55.7,
+        'pm_ra':   13.87,  'pm_dec':  -52.65,
+        'mag': 2.05,  'constellation': 'Sagittarius',
+    },
+
+    # --- Pavo ---
+    'Peacock': {                                         # One of the few stars with an official English proper name, assigned by British navigators in 1937
+        'ra': 306.412,  'dec': -56.735, 'dist':  56.2,
+        'pm_ra':    7.71,  'pm_dec':  -86.15,
+        'mag': 1.94,  'constellation': 'Pavo',
+    },
+
+    # --- Triangulum Australe ---
+    'Atria': {                                           # Brightest in the Southern Triangle; guides navigators toward the south celestial pole
+        'ra': 252.166,  'dec': -69.028, 'dist': 127.0,
+        'pm_ra':   17.99,  'pm_dec':  -32.92,
+        'mag': 1.91,  'constellation': 'Triangulum Australe',
+    },
+
+    # --- Scorpius (additions) ---
+    'Shaula': {                                          # "The Raised Tail" of the Scorpion; Polynesian navigators steered by this star across the Pacific
+        'ra': 263.402,  'dec': -37.104, 'dist': 112.0,
+        'pm_ra':   -3.09,  'pm_dec':  -29.95,
+        'mag': 1.62,  'constellation': 'Scorpius',
+    },
+    'Sargas': {                                          # Ancient Sumerian name; part of the Scorpion's tail tracked by Mesopotamian astronomers
+        'ra': 264.330,  'dec': -42.998, 'dist':  68.7,
+        'pm_ra':   -5.58,  'pm_dec':  -25.71,
+        'mag': 1.87,  'constellation': 'Scorpius',
+    },
+    'Dschubba': {                                        # "The Forehead of the Scorpion"; dramatically brightened in 2000 AD and remains variable
+        'ra': 240.083,  'dec': -22.622, 'dist': 133.0,
+        'pm_ra':   -8.36,  'pm_dec':  -26.58,
+        'mag': 2.29,  'constellation': 'Scorpius',
+    },
+
+    # --- Ophiuchus ---
+    'Rasalhague': {                                      # "Head of the Serpent Bearer" — Ophiuchus is the 13th zodiac constellation classical astrology omitted
+        'ra': 263.734,  'dec':  12.560, 'dist':  14.6,
+        'pm_ra':  108.07,  'pm_dec': -221.57,
+        'mag': 2.08,  'constellation': 'Ophiuchus',
+    },
+
+    # --- Corona Borealis ---
+    'Alphecca': {                                        # "The Jewel of the Northern Crown" — in Norse myth, the crown of Ariadne
+        'ra': 233.672,  'dec':  26.715, 'dist':  22.9,
+        'pm_ra':  120.35,  'pm_dec':  -89.17,
+        'mag': 2.22,  'constellation': 'Corona Borealis',
+    },
+
+    # --- Andromeda ---
+    'Alpheratz': {                                       # Corner star shared between Andromeda and Pegasus; anchors the Great Square navigation asterism
+        'ra':   2.097,  'dec':  29.091, 'dist':  29.8,
+        'pm_ra':  135.68,  'pm_dec': -162.95,
+        'mag': 2.06,  'constellation': 'Andromeda',
+    },
+
+    # --- Pegasus ---
+    'Enif': {                                            # "The Horse's Nose" — a bright orange supergiant marking the head of the winged Pegasus
+        'ra': 326.046,  'dec':   9.875, 'dist': 211.0,
+        'pm_ra':   26.92,  'pm_dec':    0.40,
+        'mag': 2.38,  'constellation': 'Pegasus',
+    },
+    'Markab': {                                          # "The Saddle" of Pegasus — one corner of the Great Square used for navigation across cultures
+        'ra': 346.190,  'dec':  15.205, 'dist':  42.5,
+        'pm_ra':   61.10,  'pm_dec':  -42.56,
+        'mag': 2.49,  'constellation': 'Pegasus',
+    },
+
+    # --- Corvus ---
+    'Gienah': {                                          # Brightest in Corvus the Crow; Hipparchus used nearby stars to first measure precession of the equinoxes
+        'ra': 183.786,  'dec': -17.542, 'dist':  50.0,
+        'pm_ra': -158.61,  'pm_dec':   21.06,
+        'mag': 2.59,  'constellation': 'Corvus',
+    },
+
+    # --- Cetus ---
+    'Menkar': {                                          # "The Nostril of the Sea Monster"; in Persian star lore one of the four Royal Stars of Heaven
+        'ra':  45.570,  'dec':   4.090, 'dist':  67.0,
+        'pm_ra':  -11.81,  'pm_dec':  -78.32,
+        'mag': 2.54,  'constellation': 'Cetus',
+    },
+
+    # --- Phoenix ---
+    'Ankaa': {                                           # Brightest in Phoenix the Firebird; constellation introduced by Dutch navigators in the 1590s
+        'ra':   6.571,  'dec': -42.306, 'dist':  23.8,
+        'pm_ra':  232.76,  'pm_dec': -353.64,
+        'mag': 2.40,  'constellation': 'Phoenix',
+    },
+
+    # --- Libra ---
+    'Zubenelgenubi': {                                   # "The Southern Claw" — once part of Scorpius; detached into Libra by Roman astronomers
+        'ra': 222.719,  'dec': -16.042, 'dist':  22.9,
+        'pm_ra':   72.21,  'pm_dec': -103.82,
+        'mag': 2.75,  'constellation': 'Libra',
+    },
+
+    # --- Crux (addition) ---
+    'Gacrux': {                                          # Red giant at the top of the Southern Cross; key navigation star for indigenous Australians
+        'ra': 187.792,  'dec': -57.113, 'dist':  27.2,
+        'pm_ra':   27.94,  'pm_dec': -264.04,
+        'mag': 1.59,  'constellation': 'Crux',
+    },
+
+    # --- Grus ---
+    'Alnair': {                                          # "The Bright One" of Grus the Crane; used by Polynesian navigators in the south Pacific
+        'ra': 332.058,  'dec': -46.961, 'dist':  31.0,
+        'pm_ra':  127.60,  'pm_dec': -147.91,
+        'mag': 1.73,  'constellation': 'Grus',
+    },
 }
 
 

@@ -374,6 +374,12 @@
       <div class="value-display" id="hour-display">22:00</div>
       <input type="range" id="hour-slider" min="0" max="23.5" step="0.5" value="22" />
     </div>
+
+    <div class="slider-wrap" style="margin-top:14px">
+      <label>Magnitude limit (show ≤)</label>
+      <div class="value-display" id="mag-display">3.5</div>
+      <input type="range" id="mag-slider" min="0.5" max="4.0" step="0.25" value="3.5" />
+    </div>
   </div>
 
   <hr />
@@ -473,6 +479,24 @@
     'Centaurus':   '#f06292',
     'Crux':        '#ffffff',
     'Ursa Major':  '#7986cb',
+    'Aquila':      '#ffeb3b',
+    'Sagittarius': '#ff9800',
+    'Perseus':     '#64b5f6',
+    'Hydra':       '#00acc1',
+    'Aries':       '#ef5350',
+    'Ophiuchus':   '#66bb6a',
+    'Andromeda':   '#ba68c8',
+    'Pegasus':     '#42a5f5',
+    'Corona Borealis': '#e91e63',
+    'Cetus':       '#90a4ae',
+    'Pavo':        '#7e57c2',
+    'Triangulum Australe': '#ec407a',
+    'Corvus':      '#546e7a',
+    'Phoenix':     '#ff7043',
+    'Libra':       '#8bc34a',
+    'Puppis':      '#ffa726',
+    'Vela':        '#29b6f6',
+    'Grus':        '#ab47bc',
   };
 
   function magToSize(mag) {
@@ -656,6 +680,10 @@
   document.getElementById('hour-slider').addEventListener('input', e => {
     document.getElementById('hour-display').textContent = formatHour(+e.target.value);
   });
+  document.getElementById('mag-slider').addEventListener('input', e => {
+    document.getElementById('mag-display').textContent = (+e.target.value).toFixed(2);
+    if (lastChartData) renderChart(lastChartData);
+  });
 
   // ── Main fetch & render ──
   document.getElementById('view-btn').addEventListener('click', fetchAndRender);
@@ -718,22 +746,27 @@
 
   // Pairs of stars to connect with lines, grouped by constellation
   const CONSTELLATION_LINES = {
-    'Orion':       [['Mintaka','Alnilam'], ['Alnilam','Alnitak'],   // belt
-                    ['Betelgeuse','Alnitak'], ['Rigel','Mintaka']],  // body
+    'Orion':       [['Mintaka','Alnilam'], ['Alnilam','Alnitak'],
+                    ['Betelgeuse','Alnitak'], ['Rigel','Mintaka']],
     'Taurus':      [['Aldebaran','Alcyone']],
-    'Gemini':      [['Castor','Pollux']],
+    'Gemini':      [['Castor','Pollux'], ['Pollux','Alhena']],
     'Canis Major': [['Sirius','Adhara']],
     'Centaurus':   [['Alpha Centauri','Hadar']],
-    'Crux':        [['Acrux','Mimosa']],
+    'Crux':        [['Acrux','Gacrux'], ['Acrux','Mimosa']],
+    'Scorpius':    [['Dschubba','Antares'], ['Antares','Sargas'], ['Sargas','Shaula']],
+    'Sagittarius': [['Kaus Australis','Nunki']],
+    'Perseus':     [['Mirfak','Algol']],
+    'Pegasus':     [['Markab','Enif']],
   };
 
-  function makeConstellationLines(starsData) {
+  function makeConstellationLines(starsData, magLimit) {
     const lineTraces = [];
     for (const [constName, pairs] of Object.entries(CONSTELLATION_LINES)) {
       for (const [a, b] of pairs) {
         const s1 = starsData[a];
         const s2 = starsData[b];
         if (!s1 || !s2) continue;
+        if (s1.magnitude > magLimit || s2.magnitude > magLimit) continue;
         const opacity = (s1.visible && s2.visible) ? 0.35 : 0.1;
         lineTraces.push({
           type: 'scatterpolar',
@@ -832,7 +865,38 @@
     'Adhara':         'Second brightest star in Canis Major after Sirius. In the far ultraviolet it is the brightest star in the sky.',
     'Achernar':       'Marks the southern end of the river Eridanus. A key navigation star for cultures of the southern hemisphere.',
     'Castor':         'A sextuple star system — six stars orbiting each other — that appears as one bright point to the eye.',
-    'Pollux':         'The brighter of the Gemini twins. It has a confirmed planet, Pollux b, discovered in 2006.',
+    'Pollux':              'The brighter of the Gemini twins. It has a confirmed planet, Pollux b, discovered in 2006.',
+    'Altair':              'In Chinese myth, the Cowherd Star — separated from Vega (the Weaver) by the Milky Way, reunited once a year in the Qixi festival.',
+    'Alhena':              'Marks the foot of the Gemini twins. Bedouin navigators used it as a southern guide star when the Southern Cross was too low.',
+    'Wezen':               '"The Weight" in Arabic — a yellow-white supergiant 10,000 times more luminous than the Sun, visible only because of its enormous power.',
+    'Mirzam':              '"The Announcer" — it rises just before Sirius, and ancient Arab navigators watched for it as a herald of the brightest star.',
+    'Avior':               'Used in celestial navigation to find south; marks the keel of the mythical ship Argo from the Jason and the Argonauts legend.',
+    'Miaplacidus':         'Second brightest in Carina; ancient Polynesian voyagers used it as a steering star when crossing the South Pacific.',
+    'Regor':               'The brightest Wolf-Rayet star visible to the naked eye — its spectrum shows bare helium-burning layers exposed by stellar winds.',
+    'Suhail':              '"The Bright One of the Ship" in Arabic; Arab navigators of the Indian Ocean used it alongside Canopus for open-sea wayfinding.',
+    'Naos':                'One of the hottest and most luminous naked-eye stars — a rare O-type blue supergiant radiating 500,000 times the Sun\'s energy.',
+    'Alphard':             '"The Solitary One" in Arabic — no bright neighbors anywhere near it. Ancient Chinese called the region the Red Bird of the South.',
+    'Hamal':               'The vernal equinox was at Hamal 2,000 years ago, giving Aries its name as the first sign of the zodiac; precession has since moved the equinox into Pisces.',
+    'Mirfak':              'Heart of Perseus the hero, who slew the Gorgon Medusa. Its open cluster of young stars is visible to the naked eye.',
+    'Algol':               '"The Demon Star" (Ra\'s al-Ghul in Arabic) — its eerie dimming every 2.87 days was noted by ancient astronomers and linked to the severed head of Medusa.',
+    'Kaus Australis':      'Brightest star in Sagittarius; the galactic core of the Milky Way rises directly behind this star, making it a crossroads of ancient sky-watching.',
+    'Nunki':               'Ancient Babylonian name meaning "Yoke of the Sea" — Babylonian astronomers tracked it to predict flooding of the Euphrates River.',
+    'Peacock':             'One of the very few stars with an official English proper name, formally assigned by the British Air Ministry in 1937 for navigational use.',
+    'Atria':               'Brightest star of the Southern Triangle; indigenous Australian astronomers used the Southern Triangle to track seasons.',
+    'Shaula':              '"The Raised Tail" of the Scorpion in Arabic; Polynesian wayfinders steered by it on open-ocean voyages across the Pacific.',
+    'Sargas':              'Ancient Sumerian name; part of the Scorpion\'s tail that Mesopotamian court astronomers tracked for over two thousand years.',
+    'Dschubba':            '"The Forehead of the Scorpion" — it dramatically brightened in 2000 AD from magnitude 2.3 to 1.9 and has been variable ever since.',
+    'Rasalhague':          '"Head of the Serpent Bearer" — Ophiuchus is the 13th zodiac constellation that the Sun crosses, but classical astrology omitted it entirely.',
+    'Alphecca':            '"The Jewel of the Northern Crown" — in Norse myth the crown of Ariadne; the Romans saw it as a wreath of olive or laurel.',
+    'Alpheratz':           'The corner star shared between Andromeda and Pegasus; it anchors the Great Square of Pegasus, a navigation asterism used across many cultures.',
+    'Enif':                '"The Horse\'s Nose" in Arabic — a bright orange supergiant 185 times the Sun\'s radius, slowly pulsating and ejecting mass.',
+    'Markab':              '"The Saddle" of Pegasus — one corner of the Great Square used by sailors for millennia to orient themselves at sea.',
+    'Gienah':              'Brightest in Corvus the Crow; Hipparchus measured nearby stars against Spica here around 127 BC, leading to his discovery of precession.',
+    'Menkar':              '"The Nostril of the Sea Monster" in Arabic; in ancient Persian astrology it was one of the four Royal Stars of Heaven.',
+    'Ankaa':               'Brightest in Phoenix the Firebird — a constellation introduced by Dutch navigators in the 1590s; the Egyptians may have seen the mythical Bennu bird in this sky region.',
+    'Zubenelgenubi':       '"The Southern Claw" — once the pincer of Scorpius, claimed by Roman astronomers who needed a new constellation for the scales of justice, Libra.',
+    'Gacrux':              'The red giant at the top of the Southern Cross; indigenous Australians have deep traditions tied to the Crux, using it to track seasons and in Dreamtime stories.',
+    'Alnair':              '"The Bright One" of Grus the Crane — used by Polynesian navigators in the south Pacific alongside the Southern Cross for open-ocean wayfinding.',
   };
 
   let starClickWired = false;
@@ -904,7 +968,8 @@
 
   function renderChart(data) {
     lastChartData = data;
-    const entries = Object.entries(data.stars);
+    const magLimit = parseFloat(document.getElementById('mag-slider').value);
+    const entries = Object.entries(data.stars).filter(([, s]) => s.magnitude <= magLimit);
     const visible = entries.filter(([, s]) => s.visible);
     const hidden  = entries.filter(([, s]) => !s.visible);
 
@@ -938,7 +1003,7 @@
     });
 
     const traces = [
-      ...makeConstellationLines(data.stars),
+      ...makeConstellationLines(data.stars, magLimit),
       ...makePlanetTraces(data.planets || {}, labelsOn, planetsOn),
       makeTrace(visible, 0.95),
       { ...makeTrace(hidden, 0.18), mode: 'markers' },

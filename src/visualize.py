@@ -36,6 +36,24 @@ CONSTELLATION_COLORS = {
     'Centaurus':         '#f06292',   # pink
     'Crux':              '#ffffff',   # white
     'Ursa Major':        '#7986cb',   # indigo
+    'Aquila':            '#ffeb3b',   # yellow
+    'Sagittarius':       '#ff9800',   # deep orange
+    'Perseus':           '#64b5f6',   # light blue
+    'Hydra':             '#00acc1',   # dark cyan
+    'Aries':             '#ef5350',   # red
+    'Ophiuchus':         '#66bb6a',   # green
+    'Andromeda':         '#ba68c8',   # purple
+    'Pegasus':           '#42a5f5',   # blue
+    'Corona Borealis':   '#e91e63',   # pink
+    'Cetus':             '#90a4ae',   # blue-grey
+    'Pavo':              '#7e57c2',   # deep purple
+    'Triangulum Australe': '#ec407a', # rose
+    'Corvus':            '#546e7a',   # dark blue-grey
+    'Phoenix':           '#ff7043',   # deep orange
+    'Libra':             '#8bc34a',   # light green
+    'Puppis':            '#ffa726',   # amber
+    'Vela':              '#29b6f6',   # light blue
+    'Grus':              '#ab47bc',   # medium purple
 }
 
 DEFAULT_COLOR = '#e0e0e0'
