@@ -4,7 +4,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from flask import Flask, jsonify, request, render_template
-from alignment import calculate_alignments
+from alignment import calculate_alignments, calculate_ecliptic
 from data import MONUMENTS, STARS
 
 app = Flask(__name__)
@@ -90,6 +90,31 @@ def stars():
             for name, d in results.get('planets', {}).items()
         },
     })
+
+
+@app.route('/api/ecliptic')
+def ecliptic():
+    """
+    Return the ecliptic great circle (73 points) in local alt-az.
+
+    Accepts the same query parameters as /api/stars (lat, lon, year, month, day, hour, site).
+    """
+    lat   = float(request.args.get('lat',   29.9792))
+    lon   = float(request.args.get('lon',   31.1342))
+    year  = int(request.args.get('year',   -2500))
+    month = int(request.args.get('month',  3))
+    day   = int(request.args.get('day',    20))
+    hour  = float(request.args.get('hour', 22.0))
+    site  = request.args.get('site', None)
+
+    if site:
+        match = next((k for k in MONUMENTS if site.lower() in k.lower()), None)
+        if match:
+            lat = MONUMENTS[match]['lat']
+            lon = MONUMENTS[match]['lon']
+
+    points = calculate_ecliptic(lat, lon, year, month, day, hour)
+    return jsonify({'points': points})
 
 
 @app.route('/api/sites')

@@ -243,7 +243,7 @@
     }
     #info-bar strong { color: #f0c040; }
 
-    #btn-labels, #btn-planets {
+    #btn-labels, #btn-planets, #btn-ecliptic {
       background: #161b22;
       border: 1px solid #30363d;
       border-radius: 4px;
@@ -254,8 +254,9 @@
       letter-spacing: 0.5px;
       transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
-    #btn-labels:hover, #btn-planets:hover { border-color: #58a6ff; color: #c9d1d9; }
+    #btn-labels:hover, #btn-planets:hover, #btn-ecliptic:hover { border-color: #58a6ff; color: #c9d1d9; }
     #btn-labels.active, #btn-planets.active { background: #f0c040; border-color: #f0c040; color: #080c14; font-weight: 600; }
+    #btn-ecliptic.active { background: #e8a030; border-color: #e8a030; color: #080c14; font-weight: 600; }
     #btn-planets { margin-left: auto; }
 
     #sl-btn {
@@ -446,6 +447,7 @@
     <span id="ib-visible"></span>
     <button id="btn-planets" class="active" onclick="togglePlanets()">Planets</button>
     <button id="btn-labels" onclick="toggleLabels()">Labels</button>
+    <button id="btn-ecliptic" onclick="toggleEcliptic()">Ecliptic</button>
   </div>
 
   <div id="sky-chart"></div>
@@ -701,16 +703,16 @@
     const lat   = document.getElementById('lat').value;
     const lon   = document.getElementById('lon').value;
 
-    let url = `/api/stars?year=${year}&month=${month}&day=${day}&hour=${hour}`;
-    if (site) {
-      url += `&site=${encodeURIComponent(site)}`;
-    } else {
-      url += `&lat=${lat}&lon=${lon}`;
-    }
+    const params = site
+      ? `&site=${encodeURIComponent(site)}`
+      : `&lat=${lat}&lon=${lon}`;
+    const base = `year=${year}&month=${month}&day=${day}&hour=${hour}${params}`;
+    const starsUrl   = `/api/stars?${base}`;
+    const eclUrl     = `/api/ecliptic?${base}`;
 
-    fetch(url)
-      .then(r => r.json())
-      .then(data => {
+    Promise.all([fetch(starsUrl).then(r => r.json()), fetch(eclUrl).then(r => r.json())])
+      .then(([data, eclResp]) => {
+        eclipticData = eclResp.points;
         renderChart(data);
         updateInfoBar(data);
         updateDescription(data);
@@ -722,7 +724,7 @@
       })
       .catch(err => {
         console.error(err);
-        alert('Error fetching star data. See console for details.');
+        alert('Error fetching sky data. See console for details.');
       })
       .finally(() => {
         btn.disabled = false;
@@ -911,11 +913,42 @@
 
   let planetsOn = true;
   let sightlineAz = null;
+  let eclipticOn = false;
+  let eclipticData = null;
 
   function togglePlanets() {
     planetsOn = !planetsOn;
     document.getElementById('btn-planets').classList.toggle('active', planetsOn);
     if (lastChartData) renderChart(lastChartData);
+  }
+
+  function toggleEcliptic() {
+    eclipticOn = !eclipticOn;
+    document.getElementById('btn-ecliptic').classList.toggle('active', eclipticOn);
+    if (lastChartData) renderChart(lastChartData);
+  }
+
+  function makeEclipticTrace(points) {
+    if (!points || !points.length) return [];
+    const r = [], theta = [];
+    for (const pt of points) {
+      if (pt.altitude < 0) {
+        r.push(null);
+        theta.push(null);
+      } else {
+        r.push(90 - pt.altitude);
+        theta.push(pt.azimuth);
+      }
+    }
+    return [{
+      type: 'scatterpolar',
+      r, theta,
+      mode: 'lines',
+      line: { color: '#e8a030', width: 1.8, dash: 'dot' },
+      opacity: 0.6,
+      hoverinfo: 'skip',
+      showlegend: false,
+    }];
   }
 
   function drawSightline() {
@@ -1003,6 +1036,7 @@
     });
 
     const traces = [
+      ...makeEclipticTrace(eclipticOn ? eclipticData : null),
       ...makeConstellationLines(data.stars, magLimit),
       ...makePlanetTraces(data.planets || {}, labelsOn, planetsOn),
       makeTrace(visible, 0.95),

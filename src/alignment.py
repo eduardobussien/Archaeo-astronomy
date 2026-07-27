@@ -3,7 +3,7 @@ import math
 import warnings
 import numpy as np
 from astropy.time import Time
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz, get_body, solar_system_ephemeris
+from astropy.coordinates import SkyCoord, EarthLocation, AltAz, get_body, solar_system_ephemeris, GeocentricTrueEcliptic
 import astropy.units as u
 from astropy.utils.exceptions import AstropyWarning
 import erfa
@@ -204,6 +204,53 @@ def calculate_alignments(lat, lon, year, month, day, hour):
     except erfa.ErfaError:
         stars_out, lst = _calculate_manual(lat, lon, jd)
         return {'jd': jd, 'lst': lst, 'stars': stars_out, 'planets': {}, 'method': 'manual'}
+
+
+def calculate_ecliptic(lat, lon, year, month, day, hour):
+    """
+    Return 73 points (0°..360° ecliptic longitude, step 5°) projected onto
+    the local alt-az frame.  The 73rd point closes the loop back to 0°.
+
+    Uses astropy's GeocentricTrueEcliptic frame when available; falls back to
+    the Meeus obliquity + Lieske precession for dates outside ERFA's range.
+    """
+    hour_ut = hour - lon / 15.0
+    jd = _date_to_jd(year, month, day, hour_ut)
+
+    try:
+        obs_time = get_observation_time(year, month, day, hour_ut)
+        loc = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
+        altaz_frame = AltAz(obstime=obs_time, location=loc)
+        ecl_frame = GeocentricTrueEcliptic(equinox=obs_time)
+
+        points = []
+        for i in range(73):
+            lam = i * 5.0
+            ecl = SkyCoord(lon=lam * u.deg, lat=0.0 * u.deg, frame=ecl_frame)
+            altaz = ecl.transform_to(altaz_frame)
+            points.append({
+                'longitude': lam,
+                'altitude':  float(altaz.alt.degree),
+                'azimuth':   float(altaz.az.degree),
+            })
+        return points
+
+    except erfa.ErfaError:
+        T = (jd - 2451545.0) / 36525.0
+        eps = math.radians(23.439291 - 0.013004 * T - 1.64e-7 * T**2)
+        gmst = _gmst_degrees(jd)
+        lst = (gmst + lon) % 360.0
+
+        points = []
+        for i in range(73):
+            lam = math.radians(i * 5.0)
+            ra_j2000 = math.degrees(math.atan2(math.cos(eps) * math.sin(lam), math.cos(lam))) % 360
+            dec_j2000 = math.degrees(math.asin(max(-1.0, min(1.0, math.sin(eps) * math.sin(lam)))))
+            ra_prec, dec_prec = _apply_precession_lieske(ra_j2000, dec_j2000, T)
+            ha = (lst - ra_prec) % 360.0
+            alt, az = _ha_dec_to_altaz(ha, dec_prec, lat)
+            points.append({'longitude': i * 5.0, 'altitude': alt, 'azimuth': az})
+        return points
 
 
 def check_alignments(star_results, orientation_az, threshold_deg=2.0):
