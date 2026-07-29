@@ -259,6 +259,27 @@
     #btn-ecliptic.active { background: #e8a030; border-color: #e8a030; color: #080c14; font-weight: 600; }
     #btn-planets { margin-left: auto; }
 
+    /* ── Animation controls ── */
+    .anim-row { display:flex; align-items:center; gap:8px; margin-top:8px; }
+    .anim-label { font-size:0.7rem; color:#8b949e; width:38px; flex-shrink:0; }
+    .anim-chip-group { display:flex; gap:4px; }
+    .anim-chip {
+      background:#161b22; border:1px solid #30363d; border-radius:4px;
+      color:#8b949e; font-size:0.7rem; padding:3px 9px; cursor:pointer;
+      transition:all 0.15s;
+    }
+    .anim-chip.active { background:#1f6feb; border-color:#1f6feb; color:#fff; font-weight:600; }
+    .anim-chip:not(.active):hover { border-color:#58a6ff; color:#c9d1d9; }
+    .anim-ctrl-row { display:flex; gap:6px; margin-top:10px; }
+    .anim-ctrl {
+      background:#161b22; border:1px solid #30363d; border-radius:4px;
+      color:#c9d1d9; font-size:0.85rem; padding:5px 0; cursor:pointer;
+      transition:all 0.15s; flex:1; text-align:center;
+    }
+    .anim-ctrl:hover { border-color:#58a6ff; }
+    #anim-play { background:#1f6feb; border-color:#1f6feb; color:#fff; flex:2; }
+    #anim-play.playing { background:#da3633; border-color:#da3633; }
+
     #sl-btn {
       width: 100%;
       padding: 8px;
@@ -402,6 +423,38 @@
       <span>Mag <strong id="sc-mag"></strong></span>
     </div>
     <div class="star-card-note" id="sc-note" style="display:none"></div>
+  </div>
+
+  <hr />
+
+  <!-- Animation -->
+  <div>
+    <div class="section-label">Animation</div>
+
+    <div class="anim-row">
+      <span class="anim-label">Step</span>
+      <div class="anim-chip-group" id="anim-units">
+        <button class="anim-chip active" data-val="1h"  onclick="setAnimUnit('1h')">1 hr</button>
+        <button class="anim-chip"        data-val="1d"  onclick="setAnimUnit('1d')">1 day</button>
+        <button class="anim-chip"        data-val="1mo" onclick="setAnimUnit('1mo')">1 mo</button>
+        <button class="anim-chip"        data-val="1yr" onclick="setAnimUnit('1yr')">1 yr</button>
+      </div>
+    </div>
+
+    <div class="anim-row">
+      <span class="anim-label">Speed</span>
+      <div class="anim-chip-group" id="anim-speeds">
+        <button class="anim-chip"        data-ms="1400" onclick="setAnimSpeed(1400)">Slow</button>
+        <button class="anim-chip active" data-ms="650"  onclick="setAnimSpeed(650)">Med</button>
+        <button class="anim-chip"        data-ms="220"  onclick="setAnimSpeed(220)">Fast</button>
+      </div>
+    </div>
+
+    <div class="anim-ctrl-row">
+      <button class="anim-ctrl" id="anim-back" onclick="animStep(-1)">&#9664;</button>
+      <button class="anim-ctrl" id="anim-play" onclick="toggleAnimation()">&#9654; Play</button>
+      <button class="anim-ctrl" id="anim-fwd"  onclick="animStep(+1)">&#9654;</button>
+    </div>
   </div>
 
   <hr />
@@ -690,10 +743,10 @@
   // ── Main fetch & render ──
   document.getElementById('view-btn').addEventListener('click', fetchAndRender);
 
-  function fetchAndRender() {
+  function fetchAndRender(silent = false) {
+    if (!silent && animating) stopAnimation();
     const btn = document.getElementById('view-btn');
-    btn.disabled = true;
-    btn.textContent = 'LOADING…';
+    if (!silent) { btn.disabled = true; btn.textContent = 'LOADING…'; }
 
     const site  = document.getElementById('site-select').value;
     const year  = document.getElementById('year-slider').value;
@@ -710,12 +763,12 @@
     const starsUrl   = `/api/stars?${base}`;
     const eclUrl     = `/api/ecliptic?${base}`;
 
-    Promise.all([fetch(starsUrl).then(r => r.json()), fetch(eclUrl).then(r => r.json())])
+    return Promise.all([fetch(starsUrl).then(r => r.json()), fetch(eclUrl).then(r => r.json())])
       .then(([data, eclResp]) => {
         eclipticData = eclResp.points;
         renderChart(data);
         updateInfoBar(data);
-        updateDescription(data);
+        if (!silent) updateDescription(data);
         document.getElementById('empty-state').style.display = 'none';
 
         const badge = document.getElementById('method-badge');
@@ -723,12 +776,10 @@
         badge.style.display = 'block';
       })
       .catch(err => {
-        console.error(err);
-        alert('Error fetching sky data. See console for details.');
+        if (!silent) { console.error(err); alert('Error fetching sky data. See console for details.'); }
       })
       .finally(() => {
-        btn.disabled = false;
-        btn.textContent = 'VIEW THE SKY';
+        if (!silent) { btn.disabled = false; btn.textContent = 'VIEW THE SKY'; }
       });
   }
 
@@ -915,6 +966,100 @@
   let sightlineAz = null;
   let eclipticOn = false;
   let eclipticData = null;
+
+  // ── Animation state ──
+  let animating     = false;
+  let animIntervalId = null;
+  let animUnit      = '1h';
+  let animMs        = 650;
+  let animBusy      = false;
+
+  const DAYS_IN_MONTH = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  function setAnimUnit(unit) {
+    animUnit = unit;
+    document.querySelectorAll('#anim-units .anim-chip').forEach(b =>
+      b.classList.toggle('active', b.dataset.val === unit));
+  }
+
+  function setAnimSpeed(ms) {
+    animMs = ms;
+    document.querySelectorAll('#anim-speeds .anim-chip').forEach(b =>
+      b.classList.toggle('active', +b.dataset.ms === ms));
+    if (animating) {
+      clearInterval(animIntervalId);
+      animIntervalId = setInterval(() => animStep(+1), animMs);
+    }
+  }
+
+  function toggleAnimation() {
+    animating ? stopAnimation() : startAnimation();
+  }
+
+  function startAnimation() {
+    animating = true;
+    const btn = document.getElementById('anim-play');
+    btn.innerHTML = '&#9646;&#9646; Pause';
+    btn.classList.add('playing');
+    animIntervalId = setInterval(() => animStep(+1), animMs);
+  }
+
+  function stopAnimation() {
+    animating = false;
+    clearInterval(animIntervalId);
+    animIntervalId = null;
+    const btn = document.getElementById('anim-play');
+    btn.innerHTML = '&#9654; Play';
+    btn.classList.remove('playing');
+  }
+
+  function animStep(direction) {
+    if (animBusy) return;
+    advanceTimeInputs(direction);
+    animBusy = true;
+    fetchAndRender(true).finally(() => { animBusy = false; });
+  }
+
+  function advanceTimeInputs(dir) {
+    let year  = parseInt(document.getElementById('year-slider').value);
+    let month = parseInt(document.getElementById('month-select').value);
+    let day   = parseInt(document.getElementById('day').value);
+    let hour  = parseFloat(document.getElementById('hour-slider').value);
+
+    if      (animUnit === '1h')  hour  += dir;
+    else if (animUnit === '1d')  day   += dir;
+    else if (animUnit === '1mo') month += dir;
+    else if (animUnit === '1yr') year  += dir;
+
+    // hour → day carry
+    while (hour >= 24) { hour -= 24; day++;  }
+    while (hour <   0) { hour += 24; day--;  }
+    hour = Math.round(hour * 2) / 2;  // snap to 0.5 steps
+
+    // day → month carry
+    while (day > DAYS_IN_MONTH[month]) {
+      day -= DAYS_IN_MONTH[month]; month++;
+      if (month > 12) { month = 1; year++; }
+    }
+    while (day < 1) {
+      month--; if (month < 1) { month = 12; year--; }
+      day += DAYS_IN_MONTH[month];
+    }
+
+    // month → year carry
+    while (month > 12) { month -= 12; year++; }
+    while (month <  1) { month += 12; year--; }
+
+    // clamp to slider range
+    year = Math.max(-12000, Math.min(2024, year));
+
+    document.getElementById('year-slider').value     = year;
+    document.getElementById('year-display').textContent = formatYear(year);
+    document.getElementById('month-select').value    = month;
+    document.getElementById('day').value             = day;
+    document.getElementById('hour-slider').value     = hour;
+    document.getElementById('hour-display').textContent = formatHour(hour);
+  }
 
   function togglePlanets() {
     planetsOn = !planetsOn;
