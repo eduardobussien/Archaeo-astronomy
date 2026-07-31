@@ -4,7 +4,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from flask import Flask, jsonify, request, render_template
-from alignment import calculate_alignments, calculate_ecliptic
+from alignment import calculate_alignments, calculate_ecliptic, find_heliacal_rising
 from data import MONUMENTS, STARS
 
 app = Flask(__name__)
@@ -90,6 +90,40 @@ def stars():
             for name, d in results.get('planets', {}).items()
         },
     })
+
+
+@app.route('/api/heliacal')
+def heliacal():
+    """
+    Find the heliacal rising of a star in a given year and location.
+
+    Query params: lat, lon, year, star, site (optional), arc_vision (default -10).
+    """
+    lat        = float(request.args.get('lat',        29.9792))
+    lon        = float(request.args.get('lon',        31.1342))
+    year       = int(request.args.get('year',        -2780))
+    star       = request.args.get('star', 'Sirius')
+    arc_vision = float(request.args.get('arc_vision', -10.0))
+    site       = request.args.get('site', None)
+
+    if site:
+        match = next((k for k in MONUMENTS if site.lower() in k.lower()), None)
+        if match:
+            lat = MONUMENTS[match]['lat']
+            lon = MONUMENTS[match]['lon']
+
+    if star not in STARS:
+        return jsonify({'found': False, 'message': f"Unknown star: '{star}'"}), 400
+
+    result = find_heliacal_rising(lat, lon, year, star, arc_vision)
+    if result is None:
+        era = 'BC' if year < 0 else 'AD'
+        return jsonify({
+            'found': False,
+            'message': f"No heliacal rising of {star} found at this location in {abs(year)} {era}.",
+        })
+
+    return jsonify({'found': True, **result})
 
 
 @app.route('/api/ecliptic')

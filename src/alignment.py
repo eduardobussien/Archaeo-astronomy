@@ -206,6 +206,121 @@ def calculate_alignments(lat, lon, year, month, day, hour):
         return {'jd': jd, 'lst': lst, 'stars': stars_out, 'planets': {}, 'method': 'manual'}
 
 
+def _approx_sun_altitude(jd, lat, lon):
+    """
+    Low-precision Sun altitude (±1° within ±3000 yr of J2000).
+    Uses Meeus Astronomical Algorithms ch. 25.  jd must be UT-based.
+    """
+    T = (jd - 2451545.0) / 36525.0
+    L0 = (280.46646 + 36000.76983 * T + 0.0003032 * T**2) % 360
+    M  = math.radians((357.52911 + 35999.05029 * T - 0.0001537 * T**2) % 360)
+    C  = ((1.914602 - 0.004817 * T - 0.000014 * T**2) * math.sin(M)
+          + (0.019993 - 0.000101 * T) * math.sin(2 * M)
+          + 0.000289 * math.sin(3 * M))
+    sun_lon = math.radians((L0 + C) % 360)
+    eps     = math.radians(23.439291 - 0.013004 * T)
+    sun_ra  = math.atan2(math.cos(eps) * math.sin(sun_lon), math.cos(sun_lon))
+    sun_dec = math.asin(max(-1.0, min(1.0, math.sin(eps) * math.sin(sun_lon))))
+    lst     = math.radians((_gmst_degrees(jd) + lon) % 360)
+    ha      = lst - sun_ra
+    sin_alt = (math.sin(math.radians(lat)) * math.sin(sun_dec)
+               + math.cos(math.radians(lat)) * math.cos(sun_dec) * math.cos(ha))
+    return math.degrees(math.asin(max(-1.0, min(1.0, sin_alt))))
+
+
+def _find_dawn_hour(lat, lon, year, month, day, arc_vision=-10.0):
+    """
+    Binary search for the local hour (0–14) when the Sun crosses arc_vision
+    on the way up (morning twilight).  Returns None for polar day/night.
+    """
+    def sun_alt(h):
+        return _approx_sun_altitude(_date_to_jd(year, month, day, h - lon / 15.0), lat, lon)
+
+    alt_lo, alt_hi = sun_alt(0.0), sun_alt(14.0)
+    lo, hi = 0.0, 14.0
+    # Need arc_vision to be strictly between the two endpoints
+    if not ((alt_lo < arc_vision < alt_hi) or (alt_hi < arc_vision < alt_lo)):
+        return None
+    for _ in range(20):
+        mid = (lo + hi) / 2.0
+        alt_mid = sun_alt(mid)
+        if (alt_lo - arc_vision) * (alt_mid - arc_vision) <= 0:
+            hi, alt_hi = mid, alt_mid
+        else:
+            lo, alt_lo = mid, alt_mid
+    return (lo + hi) / 2.0
+
+
+def find_heliacal_rising(lat, lon, year, star_name, arc_vision=-10.0):
+    """
+    Scan day-by-day to find when star_name first becomes visible at
+    astronomical twilight (Sun altitude = arc_vision) in the target year.
+
+    Starts scanning from Oct 1 of (year-1) so the initial visibility state
+    is correctly seeded before Jan 1 of the target year.
+
+    Returns a dict with the date and geometry, or None if not found.
+    """
+    if star_name not in STARS:
+        return None
+
+    star_info = STARS[star_name]
+    DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+    scan_year, scan_month, scan_day = year - 1, 10, 1
+    prev_visible = None
+
+    for _ in range(460):   # 92 days warm-up + 366 target year + buffer
+        dawn_hour = _find_dawn_hour(lat, lon, scan_year, scan_month, scan_day, arc_vision)
+        star_alt = star_az = 0.0
+        visible = False
+
+        if dawn_hour is not None:
+            hour_ut = dawn_hour - lon / 15.0
+            jd = _date_to_jd(scan_year, scan_month, scan_day, hour_ut)
+            T  = (jd - 2451545.0) / 36525.0
+            lst = (_gmst_degrees(jd) + lon) % 360.0
+            dt_years = T * 100.0
+
+            ra  = star_info['ra']  + (star_info['pm_ra']  / 3.6e6
+                  / math.cos(math.radians(star_info['dec']))) * dt_years
+            dec = star_info['dec'] + (star_info['pm_dec'] / 3.6e6) * dt_years
+            ra_p, dec_p = _apply_precession_lieske(ra, dec, T)
+            ha = (lst - ra_p) % 360.0
+            star_alt, star_az = _ha_dec_to_altaz(ha, dec_p, lat)
+            visible = star_alt > 0.5
+
+        if scan_year == year and visible and prev_visible is False:
+            sun_alt = _approx_sun_altitude(
+                _date_to_jd(scan_year, scan_month, scan_day, dawn_hour - lon / 15.0),
+                lat, lon,
+            )
+            return {
+                'year':  scan_year,
+                'month': scan_month,
+                'day':   scan_day,
+                'star_altitude':   round(star_alt, 2),
+                'star_azimuth':    round(star_az, 2),
+                'sun_altitude':    round(sun_alt, 2),
+                'dawn_hour_local': round(dawn_hour, 2),
+            }
+
+        prev_visible = visible
+
+        # Advance one day
+        scan_day += 1
+        if scan_day > DAYS[scan_month - 1]:
+            scan_day = 1
+            scan_month += 1
+            if scan_month > 12:
+                scan_month = 1
+                scan_year += 1
+        if scan_year > year:
+            break
+
+    return None
+
+
 def calculate_ecliptic(lat, lon, year, month, day, hour):
     """
     Return 73 points (0°..360° ecliptic longitude, step 5°) projected onto

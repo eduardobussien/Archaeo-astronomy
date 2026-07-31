@@ -280,6 +280,33 @@
     #anim-play { background:#1f6feb; border-color:#1f6feb; color:#fff; flex:2; }
     #anim-play.playing { background:#da3633; border-color:#da3633; }
 
+    /* ── Heliacal Rising ── */
+    .hr-desc { font-size:0.72rem; color:#8b949e; margin:6px 0 10px; line-height:1.45; }
+    #hr-btn {
+      width:100%; margin-top:10px; padding:8px;
+      background:#1f6feb; border:none; border-radius:4px;
+      color:#fff; font-size:0.78rem; font-weight:600; cursor:pointer;
+      letter-spacing:0.5px; transition:background 0.15s;
+    }
+    #hr-btn:hover { background:#388bfd; }
+    #hr-btn:disabled { background:#21262d; color:#8b949e; cursor:not-allowed; }
+    .hr-card {
+      background:#161b22; border:1px solid #30363d; border-radius:6px;
+      padding:12px; margin-top:10px;
+    }
+    .hr-card-star { color:#f0c040; font-weight:700; font-size:0.9rem; }
+    .hr-card-date { color:#c9d1d9; font-size:0.8rem; margin:3px 0 8px; }
+    .hr-card-stats { display:flex; gap:12px; font-size:0.73rem; color:#8b949e; margin-bottom:8px; }
+    .hr-card-stats strong { color:#c9d1d9; }
+    .hr-card-note { font-size:0.71rem; color:#8b949e; line-height:1.45; margin-bottom:10px; border-top:1px solid #21262d; padding-top:8px; }
+    .hr-jump {
+      width:100%; background:transparent; border:1px solid #1f6feb;
+      border-radius:4px; color:#58a6ff; font-size:0.75rem; padding:6px;
+      cursor:pointer; transition:all 0.15s;
+    }
+    .hr-jump:hover { background:#1f6feb; color:#fff; }
+    .hr-not-found { font-size:0.78rem; color:#8b949e; margin-top:10px; }
+
     #sl-btn {
       width: 100%;
       padding: 8px;
@@ -364,7 +391,7 @@
     <div class="slider-wrap">
       <label>Year</label>
       <div class="value-display" id="year-display">2,500 BC</div>
-      <input type="range" id="year-slider" min="-12000" max="2024" step="50" value="-2500" />
+      <input type="range" id="year-slider" min="-12000" max="2024" step="1" value="-2500" />
     </div>
 
     <div class="row2" style="margin-top:14px">
@@ -474,6 +501,24 @@
     </div>
     <button id="sl-btn" onclick="drawSightline()">DRAW SIGHTLINE</button>
     <div id="sl-results" style="display:none"></div>
+  </div>
+
+  <hr />
+
+  <!-- Heliacal Rising Finder -->
+  <div>
+    <div class="section-label">Heliacal Rising Finder</div>
+    <p class="hr-desc">Find the first dawn a star rises before the Sun — the moment ancient cultures used to mark seasons and calendar events.</p>
+
+    <label>Star</label>
+    <select id="hr-star" style="width:100%; margin-top:4px"></select>
+
+    <label style="display:block; margin-top:10px">Search Year</label>
+    <input type="number" id="hr-year" value="-2780" style="width:100%; margin-top:4px" />
+
+    <button id="hr-btn" onclick="findHeliacalRising()">FIND HELIACAL RISING</button>
+
+    <div id="hr-result"></div>
   </div>
 
   <hr />
@@ -743,6 +788,86 @@
   // ── Main fetch & render ──
   document.getElementById('view-btn').addEventListener('click', fetchAndRender);
 
+  // ── Heliacal Rising Finder ──
+  const HR_MONTHS = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function populateHrStarSelect() {
+    const sel = document.getElementById('hr-star');
+    const stars = Object.keys(STAR_NOTES).sort();
+    stars.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = name;
+      if (name === 'Sirius') opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  async function findHeliacalRising() {
+    const btn  = document.getElementById('hr-btn');
+    const star = document.getElementById('hr-star').value;
+    const year = document.getElementById('hr-year').value;
+    const site = document.getElementById('site-select').value;
+    const lat  = document.getElementById('lat').value;
+    const lon  = document.getElementById('lon').value;
+
+    btn.disabled = true;
+    btn.textContent = 'SEARCHING…';
+
+    const params = site
+      ? `&site=${encodeURIComponent(site)}`
+      : `&lat=${lat}&lon=${lon}`;
+    const url = `/api/heliacal?star=${encodeURIComponent(star)}&year=${year}${params}`;
+
+    try {
+      const data = await fetch(url).then(r => r.json());
+      displayHeliacalResult(data, star);
+    } catch (e) {
+      console.error(e);
+      document.getElementById('hr-result').innerHTML =
+        '<p class="hr-not-found">Request failed — see console.</p>';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'FIND HELIACAL RISING';
+    }
+  }
+
+  function displayHeliacalResult(data, star) {
+    const el = document.getElementById('hr-result');
+    if (!data.found) {
+      el.innerHTML = `<p class="hr-not-found">${data.message}</p>`;
+      return;
+    }
+    const era     = data.year < 0 ? `${Math.abs(data.year)} BC` : `${data.year} AD`;
+    const dateStr = `${HR_MONTHS[data.month]} ${data.day}, ${era}`;
+    const note    = STAR_NOTES[star] || '';
+    const snapHour = Math.round(data.dawn_hour_local * 2) / 2;
+
+    el.innerHTML = `
+      <div class="hr-card">
+        <div class="hr-card-star">${star}</div>
+        <div class="hr-card-date">${dateStr} &mdash; ${formatHour(data.dawn_hour_local)} local</div>
+        <div class="hr-card-stats">
+          <span>Star alt: <strong>${data.star_altitude}°</strong></span>
+          <span>Sun alt: <strong>${data.sun_altitude}°</strong></span>
+        </div>
+        ${note ? `<div class="hr-card-note">${note}</div>` : ''}
+        <button class="hr-jump"
+          onclick="jumpToHeliacal(${data.year},${data.month},${data.day},${snapHour})">
+          Jump to this dawn →
+        </button>
+      </div>`;
+  }
+
+  function jumpToHeliacal(year, month, day, hour) {
+    document.getElementById('year-slider').value        = year;
+    document.getElementById('year-display').textContent = formatYear(year);
+    document.getElementById('month-select').value       = month;
+    document.getElementById('day').value                = day;
+    document.getElementById('hour-slider').value        = hour;
+    document.getElementById('hour-display').textContent = formatHour(hour);
+    fetchAndRender();
+  }
+
   function fetchAndRender(silent = false) {
     if (!silent && animating) stopAnimation();
     const btn = document.getElementById('view-btn');
@@ -951,6 +1076,8 @@
     'Gacrux':              'The red giant at the top of the Southern Cross; indigenous Australians have deep traditions tied to the Crux, using it to track seasons and in Dreamtime stories.',
     'Alnair':              '"The Bright One" of Grus the Crane — used by Polynesian navigators in the south Pacific alongside the Southern Cross for open-ocean wayfinding.',
   };
+
+  populateHrStarSelect();
 
   let starClickWired = false;
   let labelsOn = false;
