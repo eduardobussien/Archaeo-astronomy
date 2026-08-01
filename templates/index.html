@@ -258,6 +258,13 @@
     #btn-labels.active, #btn-planets.active { background: #f0c040; border-color: #f0c040; color: #080c14; font-weight: 600; }
     #btn-ecliptic.active { background: #e8a030; border-color: #e8a030; color: #080c14; font-weight: 600; }
     #btn-planets { margin-left: auto; }
+    #btn-copy {
+      background: #161b22; border: 1px solid #30363d; border-radius: 4px;
+      color: #8b949e; font-size: 0.72rem; padding: 3px 10px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    #btn-copy:hover { border-color: #58a6ff; color: #c9d1d9; }
+    #btn-copy.copied { background: #1a7f37; border-color: #1a7f37; color: #fff; }
 
     /* ── Animation controls ── */
     .anim-row { display:flex; align-items:center; gap:8px; margin-top:8px; }
@@ -546,6 +553,7 @@
     <button id="btn-planets" class="active" onclick="togglePlanets()">Planets</button>
     <button id="btn-labels" onclick="toggleLabels()">Labels</button>
     <button id="btn-ecliptic" onclick="toggleEcliptic()">Ecliptic</button>
+    <button id="btn-copy" onclick="copyPermalink()" title="Copy shareable link">&#128279; Copy Link</button>
   </div>
 
   <div id="sky-chart"></div>
@@ -744,9 +752,10 @@
         opt.textContent = name;
         sel.appendChild(opt);
       });
-      // Default to Great Pyramid
+      // Default to Great Pyramid, then override with URL params if present
       sel.value = 'Great Pyramid of Giza';
       onSiteChange();
+      if (loadFromUrl()) fetchAndRender();
     });
 
   // ── Site dropdown change ──
@@ -868,6 +877,79 @@
     fetchAndRender();
   }
 
+  // ── URL Permalink ──
+  function updateUrl() {
+    const site  = document.getElementById('site-select').value;
+    const year  = document.getElementById('year-slider').value;
+    const month = document.getElementById('month-select').value;
+    const day   = document.getElementById('day').value;
+    const hour  = document.getElementById('hour-slider').value;
+    const mag   = document.getElementById('mag-slider').value;
+    const p = new URLSearchParams();
+    if (site) { p.set('site', site); }
+    else {
+      p.set('lat', document.getElementById('lat').value);
+      p.set('lon', document.getElementById('lon').value);
+    }
+    p.set('year', year); p.set('month', month);
+    p.set('day', day);   p.set('hour', hour);
+    p.set('mag', mag);
+    p.set('planets',  planetsOn  ? '1' : '0');
+    p.set('labels',   labelsOn   ? '1' : '0');
+    p.set('ecliptic', eclipticOn ? '1' : '0');
+    history.replaceState(null, '', '?' + p.toString());
+  }
+
+  function copyPermalink() {
+    const btn = document.getElementById('btn-copy');
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      btn.textContent = '✓ Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerHTML = '&#128279; Copy Link';
+        btn.classList.remove('copied');
+      }, 1800);
+    });
+  }
+
+  function loadFromUrl() {
+    const p = new URLSearchParams(window.location.search);
+    if (!p.has('year')) return false;
+
+    const site = p.get('site');
+    if (site) {
+      document.getElementById('site-select').value = site;
+    } else {
+      document.getElementById('site-select').value = '';
+      if (p.has('lat')) document.getElementById('lat').value = p.get('lat');
+      if (p.has('lon')) document.getElementById('lon').value = p.get('lon');
+    }
+    onSiteChange();
+
+    const year = p.get('year');
+    document.getElementById('year-slider').value        = year;
+    document.getElementById('year-display').textContent = formatYear(+year);
+
+    if (p.has('month')) document.getElementById('month-select').value = p.get('month');
+    if (p.has('day'))   document.getElementById('day').value          = p.get('day');
+
+    if (p.has('hour')) {
+      const h = +p.get('hour');
+      document.getElementById('hour-slider').value        = h;
+      document.getElementById('hour-display').textContent = formatHour(h);
+    }
+    if (p.has('mag')) {
+      const m = +p.get('mag');
+      document.getElementById('mag-slider').value         = m;
+      document.getElementById('mag-display').textContent  = m.toFixed(2);
+    }
+    if (p.has('planets'))  { planetsOn  = p.get('planets')  === '1'; document.getElementById('btn-planets').classList.toggle('active', planetsOn); }
+    if (p.has('labels'))   { labelsOn   = p.get('labels')   === '1'; document.getElementById('btn-labels').classList.toggle('active', labelsOn); }
+    if (p.has('ecliptic')) { eclipticOn = p.get('ecliptic') === '1'; document.getElementById('btn-ecliptic').classList.toggle('active', eclipticOn); }
+
+    return true;
+  }
+
   function fetchAndRender(silent = false) {
     if (!silent && animating) stopAnimation();
     const btn = document.getElementById('view-btn');
@@ -899,6 +981,7 @@
         const badge = document.getElementById('method-badge');
         document.getElementById('method-label').textContent = data.meta.method;
         badge.style.display = 'block';
+        if (!silent) updateUrl();
       })
       .catch(err => {
         if (!silent) { console.error(err); alert('Error fetching sky data. See console for details.'); }
@@ -1086,7 +1169,7 @@
   function toggleLabels() {
     labelsOn = !labelsOn;
     document.getElementById('btn-labels').classList.toggle('active', labelsOn);
-    if (lastChartData) renderChart(lastChartData);
+    if (lastChartData) { renderChart(lastChartData); updateUrl(); }
   }
 
   let planetsOn = true;
@@ -1191,13 +1274,13 @@
   function togglePlanets() {
     planetsOn = !planetsOn;
     document.getElementById('btn-planets').classList.toggle('active', planetsOn);
-    if (lastChartData) renderChart(lastChartData);
+    if (lastChartData) { renderChart(lastChartData); updateUrl(); }
   }
 
   function toggleEcliptic() {
     eclipticOn = !eclipticOn;
     document.getElementById('btn-ecliptic').classList.toggle('active', eclipticOn);
-    if (lastChartData) renderChart(lastChartData);
+    if (lastChartData) { renderChart(lastChartData); updateUrl(); }
   }
 
   function makeEclipticTrace(points) {
