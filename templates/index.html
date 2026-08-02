@@ -286,6 +286,11 @@
     .anim-ctrl:hover { border-color:#58a6ff; }
     #anim-play { background:#1f6feb; border-color:#1f6feb; color:#fff; flex:2; }
     #anim-play.playing { background:#da3633; border-color:#da3633; }
+    #btn-ncp { flex:1; }
+    #btn-ncp.active { background:#e8a030; border-color:#e8a030; color:#080c14; font-weight:600; }
+    #btn-precess { flex:2; background:#172b18; border-color:#3fb950; color:#3fb950; font-weight:600; }
+    #btn-precess:hover { background:#1a7f37; border-color:#3fb950; color:#fff; }
+    #btn-precess.running { background:#1a7f37; border-color:#3fb950; color:#fff; }
 
     /* ── Heliacal Rising ── */
     .hr-desc { font-size:0.72rem; color:#8b949e; margin:6px 0 10px; line-height:1.45; }
@@ -475,6 +480,15 @@
       </div>
     </div>
 
+    <div class="anim-row" style="margin-top:4px">
+      <span class="anim-label"></span>
+      <div class="anim-chip-group" id="anim-units-yr">
+        <button class="anim-chip" data-val="10yr"  onclick="setAnimUnit('10yr')">10 yr</button>
+        <button class="anim-chip" data-val="100yr" onclick="setAnimUnit('100yr')">100 yr</button>
+        <button class="anim-chip" data-val="1kyr"  onclick="setAnimUnit('1kyr')">1 kyr</button>
+      </div>
+    </div>
+
     <div class="anim-row">
       <span class="anim-label">Speed</span>
       <div class="anim-chip-group" id="anim-speeds">
@@ -488,6 +502,11 @@
       <button class="anim-ctrl" id="anim-back" onclick="animStep(-1)">&#9664;</button>
       <button class="anim-ctrl" id="anim-play" onclick="toggleAnimation()">&#9654; Play</button>
       <button class="anim-ctrl" id="anim-fwd"  onclick="animStep(+1)">&#9654;</button>
+    </div>
+
+    <div class="anim-ctrl-row" style="margin-top:6px">
+      <button class="anim-ctrl" id="btn-ncp" onclick="toggleNCP()">&#10022; N.Pole</button>
+      <button class="anim-ctrl" id="btn-precess" onclick="startPrecessionSweep()">&#9733; Precession Sweep</button>
     </div>
   </div>
 
@@ -1183,12 +1202,13 @@
   let animUnit      = '1h';
   let animMs        = 650;
   let animBusy      = false;
+  let showNCP       = false;
 
   const DAYS_IN_MONTH = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
   function setAnimUnit(unit) {
     animUnit = unit;
-    document.querySelectorAll('#anim-units .anim-chip').forEach(b =>
+    document.querySelectorAll('#anim-units .anim-chip, #anim-units-yr .anim-chip').forEach(b =>
       b.classList.toggle('active', b.dataset.val === unit));
   }
 
@@ -1221,6 +1241,22 @@
     const btn = document.getElementById('anim-play');
     btn.innerHTML = '&#9654; Play';
     btn.classList.remove('playing');
+    document.getElementById('btn-precess').classList.remove('running');
+  }
+
+  function toggleNCP() {
+    showNCP = !showNCP;
+    document.getElementById('btn-ncp').classList.toggle('active', showNCP);
+    if (lastChartData) renderChart(lastChartData);
+  }
+
+  function startPrecessionSweep() {
+    if (animating) { stopAnimation(); return; }
+    setAnimUnit('100yr');
+    setAnimSpeed(220);
+    if (!showNCP) toggleNCP();
+    document.getElementById('btn-precess').classList.add('running');
+    startAnimation();
   }
 
   function animStep(direction) {
@@ -1236,10 +1272,13 @@
     let day   = parseInt(document.getElementById('day').value);
     let hour  = parseFloat(document.getElementById('hour-slider').value);
 
-    if      (animUnit === '1h')  hour  += dir;
-    else if (animUnit === '1d')  day   += dir;
-    else if (animUnit === '1mo') month += dir;
-    else if (animUnit === '1yr') year  += dir;
+    if      (animUnit === '1h')    hour  += dir;
+    else if (animUnit === '1d')    day   += dir;
+    else if (animUnit === '1mo')   month += dir;
+    else if (animUnit === '1yr')   year  += dir;
+    else if (animUnit === '10yr')  year  += dir * 10;
+    else if (animUnit === '100yr') year  += dir * 100;
+    else if (animUnit === '1kyr')  year  += dir * 1000;
 
     // hour → day carry
     while (hour >= 24) { hour -= 24; day++;  }
@@ -1397,6 +1436,30 @@
       makeTrace(visible, 0.95),
       { ...makeTrace(hidden, 0.18), mode: 'markers' },
     ];
+
+    // North Celestial Pole marker
+    if (showNCP && data.meta) {
+      const lat   = data.meta.lat;
+      const r_ncp = Math.max(0, 90 - lat);
+      // ring
+      traces.push({
+        type: 'scatterpolar', r: [r_ncp], theta: [0],
+        mode: 'markers',
+        marker: { size: 18, symbol: 'circle-open', color: 'rgba(0,0,0,0)',
+                  line: { color: '#e8a030', width: 2 } },
+        hoverinfo: 'skip', showlegend: false,
+      });
+      // crosshair
+      traces.push({
+        type: 'scatterpolar', r: [r_ncp], theta: [0],
+        mode: 'markers+text',
+        text: ['N.Pole'], textposition: 'top center',
+        textfont: { color: '#e8a030', size: 8 },
+        marker: { size: 10, symbol: 'cross-thin-open', color: 'rgba(0,0,0,0)',
+                  line: { color: '#e8a030', width: 2 } },
+        hoverinfo: 'skip', showlegend: false,
+      });
+    }
 
     // Monument orientation line
     if (data.monument) {
