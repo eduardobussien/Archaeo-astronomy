@@ -402,7 +402,13 @@
 
     <div class="slider-wrap">
       <label>Year</label>
-      <div class="value-display" id="year-display">2,500 BC</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="value-display" id="year-display" style="flex:1">2,500 BC</div>
+        <input type="number" id="year-input" min="-12000" max="2024"
+          value="-2500"
+          style="width:80px;background:#1a2332;border:1px solid #2d4060;border-radius:4px;
+                 color:#c9d1d9;font-size:12px;padding:3px 6px;text-align:center" />
+      </div>
       <input type="range" id="year-slider" min="-12000" max="2024" step="1" value="-2500" />
     </div>
 
@@ -743,6 +749,7 @@
     document.getElementById('site-select').value = preset.site;
     onSiteChange();
     document.getElementById('year-slider').value = preset.year;
+    document.getElementById('year-input').value  = preset.year;
     document.getElementById('year-display').textContent = formatYear(preset.year);
     document.getElementById('month-select').value = preset.month;
     document.getElementById('day').value = preset.day;
@@ -803,7 +810,23 @@
 
   // ── Slider display updates ──
   document.getElementById('year-slider').addEventListener('input', e => {
-    document.getElementById('year-display').textContent = formatYear(+e.target.value);
+    const v = +e.target.value;
+    document.getElementById('year-display').textContent = formatYear(v);
+    document.getElementById('year-input').value = v;
+  });
+
+  function applyYearInput() {
+    const raw = parseInt(document.getElementById('year-input').value);
+    if (isNaN(raw)) return;
+    const v = Math.max(-12000, Math.min(2024, raw));
+    document.getElementById('year-input').value = v;
+    document.getElementById('year-slider').value = v;
+    document.getElementById('year-display').textContent = formatYear(v);
+    fetchAndRender();
+  }
+  document.getElementById('year-input').addEventListener('change', applyYearInput);
+  document.getElementById('year-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') applyYearInput();
   });
   document.getElementById('hour-slider').addEventListener('input', e => {
     document.getElementById('hour-display').textContent = formatHour(+e.target.value);
@@ -888,6 +911,7 @@
 
   function jumpToHeliacal(year, month, day, hour) {
     document.getElementById('year-slider').value        = year;
+    document.getElementById('year-input').value         = year;
     document.getElementById('year-display').textContent = formatYear(year);
     document.getElementById('month-select').value       = month;
     document.getElementById('day').value                = day;
@@ -947,6 +971,7 @@
 
     const year = p.get('year');
     document.getElementById('year-slider').value        = year;
+    document.getElementById('year-input').value         = year;
     document.getElementById('year-display').textContent = formatYear(+year);
 
     if (p.has('month')) document.getElementById('month-select').value = p.get('month');
@@ -1302,7 +1327,8 @@
     // clamp to slider range
     year = Math.max(-12000, Math.min(2024, year));
 
-    document.getElementById('year-slider').value     = year;
+    document.getElementById('year-slider').value        = year;
+    document.getElementById('year-input').value         = year;
     document.getElementById('year-display').textContent = formatYear(year);
     document.getElementById('month-select').value    = month;
     document.getElementById('day').value             = day;
