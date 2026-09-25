@@ -212,12 +212,12 @@ STARS = {
     },
 
     # --- Canis Major (additions) ---
-    'Wezen': {                                           # "The Weight" — a yellow-white supergiant 10,000× more luminous than the Sun
+    'Wezen': {                                           # "The Weight": a yellow-white supergiant 10,000× more luminous than the Sun
         'ra': 107.098,  'dec': -26.393, 'dist': 542.0,
         'pm_ra':   -2.73,  'pm_dec':    3.02,
         'mag': 1.84,  'constellation': 'Canis Major',
     },
-    'Mirzam': {                                          # "The Announcer" — rises just before Sirius, heralding the brightest star
+    'Mirzam': {                                          # "The Announcer": rises just before Sirius, heralding the brightest star
         'ra':  95.675,  'dec': -17.956, 'dist': 153.0,
         'pm_ra':   -3.55,  'pm_dec':   -0.61,
         'mag': 1.98,  'constellation': 'Canis Major',
@@ -241,21 +241,21 @@ STARS = {
         'pm_ra':   -6.16,  'pm_dec':   10.14,
         'mag': 1.74,  'constellation': 'Vela',
     },
-    'Suhail': {                                          # "The Bright One of the Ship" — used by Arab navigators of the Indian Ocean
+    'Suhail': {                                          # "The Bright One of the Ship": used by Arab navigators of the Indian Ocean
         'ra': 136.999,  'dec': -43.433, 'dist': 168.0,
         'pm_ra':  -23.21,  'pm_dec':   14.29,
         'mag': 2.21,  'constellation': 'Vela',
     },
 
     # --- Puppis ---
-    'Naos': {                                            # One of the hottest, most luminous naked-eye stars — a rare O-type supergiant
+    'Naos': {                                            # One of the hottest, most luminous naked-eye stars, a rare O-type supergiant
         'ra': 120.896,  'dec': -40.003, 'dist': 335.0,
         'pm_ra':  -30.82,  'pm_dec':   16.77,
         'mag': 2.25,  'constellation': 'Puppis',
     },
 
     # --- Hydra ---
-    'Alphard': {                                         # "The Solitary One" — no bright neighbors; the Heart of the Sea Serpent
+    'Alphard': {                                         # "The Solitary One": no bright neighbors; the Heart of the Sea Serpent
         'ra': 141.897,  'dec':  -8.658, 'dist':  54.0,
         'pm_ra':  -14.49,  'pm_dec':   33.25,
         'mag': 1.98,  'constellation': 'Hydra',
@@ -269,12 +269,12 @@ STARS = {
     },
 
     # --- Perseus ---
-    'Mirfak': {                                          # Heart of Perseus — the hero who slew Medusa and rescued Andromeda
+    'Mirfak': {                                          # Heart of Perseus, the hero who slew Medusa and rescued Andromeda
         'ra':  51.081,  'dec':  49.861, 'dist': 155.0,
         'pm_ra':   24.11,  'pm_dec':  -26.01,
         'mag': 1.79,  'constellation': 'Perseus',
     },
-    'Algol': {                                           # "The Demon Star" — its eerie dimming every 2.87 days was noticed and feared across cultures
+    'Algol': {                                           # "The Demon Star": its eerie dimming every 2.87 days was noticed and feared across cultures
         'ra':  47.042,  'dec':  40.956, 'dist':  28.2,
         'pm_ra':    2.39,  'pm_dec':   -1.44,
         'mag': 2.09,  'constellation': 'Perseus',
@@ -286,7 +286,7 @@ STARS = {
         'pm_ra':  121.17,  'pm_dec': -204.12,
         'mag': 1.79,  'constellation': 'Sagittarius',
     },
-    'Nunki': {                                           # Babylonian "Yoke of the Sea" — they used it to predict flooding of the Euphrates
+    'Nunki': {                                           # Babylonian "Yoke of the Sea": they used it to predict flooding of the Euphrates
         'ra': 283.816,  'dec': -26.297, 'dist':  55.7,
         'pm_ra':   13.87,  'pm_dec':  -52.65,
         'mag': 2.05,  'constellation': 'Sagittarius',
@@ -324,14 +324,14 @@ STARS = {
     },
 
     # --- Ophiuchus ---
-    'Rasalhague': {                                      # "Head of the Serpent Bearer" — Ophiuchus is the 13th zodiac constellation classical astrology omitted
+    'Rasalhague': {                                      # "Head of the Serpent Bearer": Ophiuchus is the 13th zodiac constellation classical astrology omitted
         'ra': 263.734,  'dec':  12.560, 'dist':  14.6,
         'pm_ra':  108.07,  'pm_dec': -221.57,
         'mag': 2.08,  'constellation': 'Ophiuchus',
     },
 
     # --- Corona Borealis ---
-    'Alphecca': {                                        # "The Jewel of the Northern Crown" — in Norse myth, the crown of Ariadne
+    'Alphecca': {                                        # "The Jewel of the Northern Crown": in Norse myth, the crown of Ariadne
         'ra': 233.672,  'dec':  26.715, 'dist':  22.9,
         'pm_ra':  120.35,  'pm_dec':  -89.17,
         'mag': 2.22,  'constellation': 'Corona Borealis',
@@ -345,12 +345,12 @@ STARS = {
     },
 
     # --- Pegasus ---
-    'Enif': {                                            # "The Horse's Nose" — a bright orange supergiant marking the head of the winged Pegasus
+    'Enif': {                                            # "The Horse's Nose": a bright orange supergiant marking the head of the winged Pegasus
         'ra': 326.046,  'dec':   9.875, 'dist': 211.0,
         'pm_ra':   26.92,  'pm_dec':    0.40,
         'mag': 2.38,  'constellation': 'Pegasus',
     },
-    'Markab': {                                          # "The Saddle" of Pegasus — one corner of the Great Square used for navigation across cultures
+    'Markab': {                                          # "The Saddle" of Pegasus, one corner of the Great Square used for navigation across cultures
         'ra': 346.190,  'dec':  15.205, 'dist':  42.5,
         'pm_ra':   61.10,  'pm_dec':  -42.56,
         'mag': 2.49,  'constellation': 'Pegasus',
@@ -378,7 +378,7 @@ STARS = {
     },
 
     # --- Libra ---
-    'Zubenelgenubi': {                                   # "The Southern Claw" — once part of Scorpius; detached into Libra by Roman astronomers
+    'Zubenelgenubi': {                                   # "The Southern Claw": once part of Scorpius; detached into Libra by Roman astronomers
         'ra': 222.719,  'dec': -16.042, 'dist':  22.9,
         'pm_ra':   72.21,  'pm_dec': -103.82,
         'mag': 2.75,  'constellation': 'Libra',

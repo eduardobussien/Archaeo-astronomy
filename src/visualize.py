@@ -147,7 +147,7 @@ def plot_sky_map(results, monument_name=None, threshold_deg=2.0, save_path=None)
             ax.scatter(theta, r, s=size, color=color,
                        alpha=0.90, zorder=3, edgecolors='none')
 
-        # Label — offset slightly so it doesn't overlap the dot
+        # Label, offset slightly so it doesn't overlap the dot
         label_r = r - 3 if r > 5 else r + 4
         ax.annotate(
             name,

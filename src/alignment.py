@@ -3,15 +3,22 @@ import math
 import warnings
 import numpy as np
 from astropy.time import Time
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz, get_body, solar_system_ephemeris, GeocentricTrueEcliptic
+from astropy.coordinates import EarthLocation, AltAz, get_body, solar_system_ephemeris
 import astropy.units as u
 from astropy.utils.exceptions import AstropyWarning
 import erfa
 
 from data import STARS, MONUMENTS
+from precession import star_altaz, ecliptic_altaz, local_mean_sidereal_time
 
 warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', category=erfa.ErfaWarning)
+
+_STAR_NAMES = list(STARS)
+_CATALOG = {
+    key: np.array([STARS[name][key] for name in _STAR_NAMES])
+    for key in ('ra', 'dec', 'pm_ra', 'pm_dec', 'dist')
+}
 
 
 def _date_to_jd(year, month, day, hour):
@@ -46,10 +53,6 @@ def get_observation_time(year, month, day, hour):
     return t                 # estimate for ancient dates anyway
 
 
-# ---------------------------------------------------------------------------
-# Manual calculation fallback (for dates outside ERFA's ~4800 BC limit)
-# ---------------------------------------------------------------------------
-
 def _gmst_degrees(jd):
     """
     Greenwich Mean Sidereal Time in degrees via the Meeus formula.
@@ -60,80 +63,6 @@ def _gmst_degrees(jd):
     gmst = (280.46061837 + 360.98564736629 * D
             + 0.000387933 * T**2 - T**3 / 38710000.0)
     return gmst % 360.0
-
-
-def _apply_precession_lieske(ra_deg, dec_deg, T):
-    """
-    Apply IAU 1976 precession (Lieske 1979) to J2000 equatorial coordinates.
-    T = Julian centuries from J2000.0.  Valid to roughly ±10 000 years.
-    """
-    zeta  = (0.6406161 + 0.0000839 * T + 0.0000050 * T**2) * T
-    z     = (0.6406161 + 0.0003041 * T + 0.0000051 * T**2) * T
-    theta = (0.5567530 - 0.0001185 * T - 0.0000116 * T**2) * T
-
-    zeta_r  = math.radians(zeta)
-    z_r     = math.radians(z)
-    theta_r = math.radians(theta)
-    ra_r    = math.radians(ra_deg)
-    dec_r   = math.radians(dec_deg)
-
-    A = math.cos(dec_r) * math.cos(ra_r + zeta_r)
-    B = (math.cos(theta_r) * math.cos(dec_r) * math.sin(ra_r + zeta_r)
-         - math.sin(theta_r) * math.sin(dec_r))
-    C = (math.sin(theta_r) * math.cos(dec_r) * math.sin(ra_r + zeta_r)
-         + math.cos(theta_r) * math.sin(dec_r))
-
-    ra_prec  = (math.degrees(math.atan2(B, A)) + z) % 360.0
-    dec_prec = math.degrees(math.asin(max(-1.0, min(1.0, C))))
-    return ra_prec, dec_prec
-
-
-def _ha_dec_to_altaz(ha_deg, dec_deg, lat_deg):
-    """Convert Hour Angle and Declination to (altitude, azimuth) in degrees."""
-    ha  = math.radians(ha_deg)
-    dec = math.radians(dec_deg)
-    lat = math.radians(lat_deg)
-
-    sin_alt = math.sin(lat) * math.sin(dec) + math.cos(lat) * math.cos(dec) * math.cos(ha)
-    sin_alt = max(-1.0, min(1.0, sin_alt))
-    alt = math.degrees(math.asin(sin_alt))
-
-    cos_alt = math.cos(math.radians(alt))
-    if cos_alt < 1e-10:
-        return alt, 0.0
-
-    cos_az = (math.sin(dec) - math.sin(lat) * sin_alt) / (math.cos(lat) * cos_alt)
-    cos_az = max(-1.0, min(1.0, cos_az))
-    az = math.degrees(math.acos(cos_az))
-    if math.sin(ha) >= 0:
-        az = 360.0 - az
-
-    return alt, az
-
-
-def _calculate_manual(lat, lon, jd):
-    """
-    Compute star positions using polynomial GMST + Lieske precession.
-    Used automatically for dates before ~4800 BC where ERFA errors out.
-    """
-    T   = (jd - 2451545.0) / 36525.0
-    dt_years = T * 100.0
-    lst = (_gmst_degrees(jd) + lon) % 360.0
-
-    stars_out = {}
-    for name, data in STARS.items():
-        # Proper motion: linear angular displacement
-        ra  = data['ra']  + (data['pm_ra']  / 3.6e6 / math.cos(math.radians(data['dec']))) * dt_years
-        dec = data['dec'] + (data['pm_dec'] / 3.6e6) * dt_years
-
-        ra_prec, dec_prec = _apply_precession_lieske(ra, dec, T)
-
-        ha = (lst - ra_prec) % 360.0
-        alt, az = _ha_dec_to_altaz(ha, dec_prec, lat)
-
-        stars_out[name] = {'altitude': alt, 'azimuth': az, 'visible': alt > 0}
-
-    return stars_out, lst
 
 
 _PLANET_NAMES = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn']
@@ -161,49 +90,42 @@ def calculate_alignments(lat, lon, year, month, day, hour):
     """
     Compute altitude and azimuth for every star in the catalog.
 
-    Uses astropy/ERFA for dates after ~4800 BC (full precession + proper motion).
-    Falls back to Meeus polynomial formulas for deeper historical dates.
+    Stars use the long-term precession engine in precession.py at every epoch.
+    Planets use astropy's builtin ephemeris and are omitted before ~4800 BC,
+    where ERFA's calendar routines refuse the date.
 
     Returns a dict with keys:
-        jd      - Julian Date
-        lst     - Local Sidereal Time in degrees
+        jd      - Julian Date (UT1)
+        lst     - Local mean sidereal time in degrees
         stars   - {name: {altitude, azimuth, visible}} for each star
-        method  - 'astropy' or 'manual' (indicates which engine was used)
+        planets - {name: {altitude, azimuth, visible}}, possibly empty
+        method  - name of the star position model
     """
     # Convert local mean solar time to UT (the user picks local time; lon/15 is the offset)
     hour_ut = hour - lon / 15.0
     jd = _date_to_jd(year, month, day, hour_ut)
 
+    alt, az = star_altaz(_CATALOG['ra'], _CATALOG['dec'], _CATALOG['pm_ra'],
+                         _CATALOG['pm_dec'], _CATALOG['dist'], jd, lat, lon)
+    stars_out = {
+        name: {'altitude': float(a), 'azimuth': float(z), 'visible': bool(a > 0)}
+        for name, a, z in zip(_STAR_NAMES, alt, az)
+    }
+
     try:
-        obs_time  = get_observation_time(year, month, day, hour_ut)
-        loc       = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
-        altaz_frame = AltAz(obstime=obs_time, location=loc)
-        lst = obs_time.sidereal_time('mean', longitude=loc.lon).degree
-
-        stars_out = {}
-        for name, data in STARS.items():
-            star = SkyCoord(
-                ra=data['ra'] * u.deg,
-                dec=data['dec'] * u.deg,
-                distance=data['dist'] * u.pc,
-                pm_ra_cosdec=data['pm_ra'] * u.mas / u.yr,
-                pm_dec=data['pm_dec'] * u.mas / u.yr,
-                obstime=Time('J2000'),
-            )
-            star_at_epoch = star.apply_space_motion(new_obstime=obs_time)
-            altaz = star_at_epoch.transform_to(altaz_frame)
-            stars_out[name] = {
-                'altitude': altaz.alt.degree,
-                'azimuth':  altaz.az.degree,
-                'visible':  altaz.alt.degree > 0,
-            }
-
-        planets = _calculate_planets(obs_time, loc, altaz_frame)
-        return {'jd': jd, 'lst': lst, 'stars': stars_out, 'planets': planets, 'method': 'astropy'}
-
+        obs_time = get_observation_time(year, month, day, hour_ut)
+        loc = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
+        planets = _calculate_planets(obs_time, loc, AltAz(obstime=obs_time, location=loc))
     except erfa.ErfaError:
-        stars_out, lst = _calculate_manual(lat, lon, jd)
-        return {'jd': jd, 'lst': lst, 'stars': stars_out, 'planets': {}, 'method': 'manual'}
+        planets = {}
+
+    return {
+        'jd': jd,
+        'lst': float(local_mean_sidereal_time(jd, lon)),
+        'stars': stars_out,
+        'planets': planets,
+        'method': 'Vondrák 2011',
+    }
 
 
 def _approx_sun_altitude(jd, lat, lon):
@@ -276,18 +198,10 @@ def find_heliacal_rising(lat, lon, year, star_name, arc_vision=-10.0):
         visible = False
 
         if dawn_hour is not None:
-            hour_ut = dawn_hour - lon / 15.0
-            jd = _date_to_jd(scan_year, scan_month, scan_day, hour_ut)
-            T  = (jd - 2451545.0) / 36525.0
-            lst = (_gmst_degrees(jd) + lon) % 360.0
-            dt_years = T * 100.0
-
-            ra  = star_info['ra']  + (star_info['pm_ra']  / 3.6e6
-                  / math.cos(math.radians(star_info['dec']))) * dt_years
-            dec = star_info['dec'] + (star_info['pm_dec'] / 3.6e6) * dt_years
-            ra_p, dec_p = _apply_precession_lieske(ra, dec, T)
-            ha = (lst - ra_p) % 360.0
-            star_alt, star_az = _ha_dec_to_altaz(ha, dec_p, lat)
+            jd = _date_to_jd(scan_year, scan_month, scan_day, dawn_hour - lon / 15.0)
+            star_alt, star_az = (float(v) for v in star_altaz(
+                star_info['ra'], star_info['dec'], star_info['pm_ra'],
+                star_info['pm_dec'], star_info['dist'], jd, lat, lon))
             visible = star_alt > 0.5
 
         if scan_year == year and visible and prev_visible is False:
@@ -326,46 +240,15 @@ def calculate_ecliptic(lat, lon, year, month, day, hour):
     Return 73 points (0°..360° ecliptic longitude, step 5°) projected onto
     the local alt-az frame.  The 73rd point closes the loop back to 0°.
 
-    Uses astropy's GeocentricTrueEcliptic frame when available; falls back to
-    the Meeus obliquity + Lieske precession for dates outside ERFA's range.
+    Uses the mean ecliptic of date from the long-term precession model.
     """
-    hour_ut = hour - lon / 15.0
-    jd = _date_to_jd(year, month, day, hour_ut)
-
-    try:
-        obs_time = get_observation_time(year, month, day, hour_ut)
-        loc = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
-        altaz_frame = AltAz(obstime=obs_time, location=loc)
-        ecl_frame = GeocentricTrueEcliptic(equinox=obs_time)
-
-        points = []
-        for i in range(73):
-            lam = i * 5.0
-            ecl = SkyCoord(lon=lam * u.deg, lat=0.0 * u.deg, frame=ecl_frame)
-            altaz = ecl.transform_to(altaz_frame)
-            points.append({
-                'longitude': lam,
-                'altitude':  float(altaz.alt.degree),
-                'azimuth':   float(altaz.az.degree),
-            })
-        return points
-
-    except erfa.ErfaError:
-        T = (jd - 2451545.0) / 36525.0
-        eps = math.radians(23.439291 - 0.013004 * T - 1.64e-7 * T**2)
-        gmst = _gmst_degrees(jd)
-        lst = (gmst + lon) % 360.0
-
-        points = []
-        for i in range(73):
-            lam = math.radians(i * 5.0)
-            ra_j2000 = math.degrees(math.atan2(math.cos(eps) * math.sin(lam), math.cos(lam))) % 360
-            dec_j2000 = math.degrees(math.asin(max(-1.0, min(1.0, math.sin(eps) * math.sin(lam)))))
-            ra_prec, dec_prec = _apply_precession_lieske(ra_j2000, dec_j2000, T)
-            ha = (lst - ra_prec) % 360.0
-            alt, az = _ha_dec_to_altaz(ha, dec_prec, lat)
-            points.append({'longitude': i * 5.0, 'altitude': alt, 'azimuth': az})
-        return points
+    jd = _date_to_jd(year, month, day, hour - lon / 15.0)
+    longitudes = np.arange(73) * 5.0
+    alt, az = ecliptic_altaz(jd, lat, lon, longitudes)
+    return [
+        {'longitude': float(lam), 'altitude': float(a), 'azimuth': float(z)}
+        for lam, a, z in zip(longitudes, alt, az)
+    ]
 
 
 def check_alignments(star_results, orientation_az, threshold_deg=2.0):

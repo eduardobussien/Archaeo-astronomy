@@ -71,11 +71,14 @@ Navigate to `http://127.0.0.1:5000`
 ```
 app.py              Flask server and API endpoints
 src/
-  alignment.py      Astronomical calculations (precession, proper motion, heliacal rising)
+  alignment.py      Site and date calculations (star table, ecliptic, heliacal rising)
+  precession.py     Long-term precession, Earth rotation and proper motion engine
   data.py           Star catalog (60 stars, J2000 positions + proper motion) and monument list
   visualize.py      Static chart export helpers
 templates/
   index.html        Single-page app, all UI and Plotly.js rendering
+tests/
+  test_precession.py  Validation against astropy and historical anchors
 requirements.txt
 ```
 
@@ -83,18 +86,26 @@ requirements.txt
 
 ## Calculation engine
 
-The backend uses a **dual-engine** approach based on date range:
+Star positions use a single model at every epoch (`src/precession.py`):
 
-| Epoch | Engine | Notes |
-|---|---|---|
-| After ~4800 BC | **astropy** | Full ICRS to GCRS to AltAz transform with proper motion applied at J2000 + dt |
-| Before ~4800 BC | **Meeus/Lieske** | Manual precession matrix (IAU 1976 + Lieske 1977 zeta/theta/z); same proper-motion offset |
+- **Precession:** Vondrák, Capitaine & Wallace (2011), valid to +/-200,000 years. The standard IAU 2006 polynomials are fitted to a few centuries of observations and drift by a third of a degree by 10,500 BC.
+- **Earth rotation:** hour angles come from the Earth Rotation Angle, which is linear in UT1, measured from the Celestial Intermediate Origin. The CIO locator `s` is integrated numerically from the long-term pole, because the IAU 2006 series for `s` diverges beyond a few millennia.
+- **Proper motion:** rigorous 3D space motion (`erfa.pmsafe`) from the J2000 catalog.
 
-Stellar proper motion is applied by nudging J2000 RA/Dec by `pm x dt` before the coordinate transform, giving physically accurate star positions back at least 10,000 years.
+Positions are geometric mean places: nutation, aberration and refraction (all under half a degree) are not applied.
 
-The **ecliptic overlay** uses astropy's `GeocentricTrueEcliptic` frame, which automatically handles the precession of the ecliptic plane for any historical epoch.
+The model is checked in `tests/` against astropy near J2000 (under 1 arcmin), against known pole stars (Thuban in 2830 BC, Vega in 12,000 BC), against the lowest culmination of Orion's Belt near 10,500 BC, and against the Sothic heliacal rising of Sirius in 2780 BC.
+
+Planets use astropy's builtin ephemeris and are shown only after ~4800 BC.
 
 **Heliacal rising** is found by scanning 460 days starting from the prior October, checking each dawn (binary search on Sun altitude = arc-vision threshold, default -10 degrees) whether the target star is above the horizon and the Sun is below it.
+
+To run the tests:
+
+```bash
+pip install pytest
+python -m pytest
+```
 
 ![Precession sweep, NCP traces its 26,000-year arc](docs/screenshot_precession.png)
 
@@ -116,6 +127,7 @@ The **ecliptic overlay** uses astropy's `GeocentricTrueEcliptic` frame, which au
 ## Dependencies
 
 - **Flask:** web server
-- **astropy:** high-precision coordinate transforms and epoch handling
-- **numpy:** vector math for the Meeus fallback path
+- **pyerfa:** IAU SOFA routines, including the Vondrák 2011 long-term precession
+- **astropy:** planet positions and test reference values
+- **numpy:** vectorized star and time calculations
 - **Plotly.js** (CDN): interactive polar chart in the browser

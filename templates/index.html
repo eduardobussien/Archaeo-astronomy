@@ -540,7 +540,7 @@
   <!-- Heliacal Rising Finder -->
   <div>
     <div class="section-label">Heliacal Rising Finder</div>
-    <p class="hr-desc">Find the first dawn a star rises before the Sun — the moment ancient cultures used to mark seasons and calendar events.</p>
+    <p class="hr-desc">Find the first dawn a star rises before the Sun, the moment ancient cultures used to mark seasons and calendar events.</p>
 
     <label>Star</label>
     <select id="hr-star" style="width:100%; margin-top:4px"></select>
@@ -666,7 +666,7 @@
         if (diff < minDiff) { minDiff = diff; nearest = name; }
       }
       if (nearest && minDiff <= 15) {
-        text += ` The monument aligns ${azToCardinal(az)} — near ${nearest} (${minDiff.toFixed(0)}° away).`;
+        text += ` The monument aligns ${azToCardinal(az)}, near ${nearest} (${minDiff.toFixed(0)}° away).`;
       } else {
         text += ` The monument faces ${azToCardinal(az)}.`;
       }
@@ -674,7 +674,7 @@
 
     const sun = data.planets && data.planets['Sun'];
     if (sun && sun.visible) {
-      text += ' The Sun is above the horizon — this would be daytime.';
+      text += ' The Sun is above the horizon, so this would be daytime.';
     }
 
     el.textContent = text;
@@ -697,7 +697,7 @@
   const PRESETS = [
     {
       title: 'Orion Correlation',
-      desc:  "Orion's Belt rises due east over Giza — Bauval's 10,500 BC theory",
+      desc:  "Orion's Belt rises due east over Giza: Bauval's 10,500 BC theory",
       site:  'Great Pyramid of Giza',
       year: -10499, month: 3, day: 20, hour: 22,
     },
@@ -721,13 +721,13 @@
     },
     {
       title: 'Sirius and the Nile Flood',
-      desc:  'Sirius rises at dawn — Egyptian New Year and the start of the flood, 2780 BC',
+      desc:  'Sirius rises at dawn: Egyptian New Year and the start of the flood, 2780 BC',
       site:  'Great Pyramid of Giza',
       year: -2780, month: 7, day: 17, hour: 5,
     },
     {
       title: 'Göbekli Tepe at Night',
-      desc:  "World's oldest temple, 9600 BC — Sirius low on the southern horizon",
+      desc:  "World's oldest temple, 9600 BC: Sirius low on the southern horizon",
       site:  'Göbekli Tepe',
       year: -9599, month: 6, day: 21, hour: 22,
     },
@@ -875,7 +875,7 @@
     } catch (e) {
       console.error(e);
       document.getElementById('hr-result').innerHTML =
-        '<p class="hr-not-found">Request failed — see console.</p>';
+        '<p class="hr-not-found">Request failed. See console.</p>';
     } finally {
       btn.disabled = false;
       btn.textContent = 'FIND HELIACAL RISING';
@@ -1099,13 +1099,13 @@
   };
 
   const PLANET_NOTES = {
-    'Sun':     'Above the horizon means daytime — stars would not be visible to the naked eye. Solstice and equinox sunrise/sunset alignments define many ancient monuments.',
+    'Sun':     'Above the horizon means daytime; stars would not be visible to the naked eye. Solstice and equinox sunrise/sunset alignments define many ancient monuments.',
     'Moon':    "The Moon's phases governed ancient calendars. A full Moon is bright enough to read by and washes out all but the brightest stars.",
-    'Mercury': 'Always within 28° of the Sun — hard to observe. Ancient Egyptians may have recorded it as two separate objects: a morning star and an evening star.',
+    'Mercury': 'Always within 28° of the Sun, making it hard to observe. Ancient Egyptians may have recorded it as two separate objects: a morning star and an evening star.',
     'Venus':   'The brightest planet, outshining everything except the Sun and Moon. The Chichen Itza pyramid aligns to its extreme northern and southern positions.',
     'Mars':    'Its red color and retrograde loops puzzled ancient astronomers. Babylonians predicted its opposition cycles to within a few days.',
     'Jupiter': 'Brightest planet when Venus is below the horizon. Babylonian astronomers tracked its position for centuries to predict events.',
-    'Saturn':  'The slowest naked-eye planet — 29 years per orbit. Ancient cultures across the world saw it as a symbol of time and fate.',
+    'Saturn':  'The slowest naked-eye planet, 29 years per orbit. Ancient cultures across the world saw it as a symbol of time and fate.',
   };
 
   function makePlanetTraces(planets, showLabels, showPlanets) {
@@ -1146,7 +1146,7 @@
     'Polaris':        'The current north star, within 1° of the celestial pole. It has only held this role since around 1100 AD.',
     'Thuban':         'The north star of the pyramid era (~2700 BC). It once shone directly down the descending passage of the Great Pyramid.',
     'Vega':           'Will become the north star around 13,700 AD due to precession. The brightest star in the summer northern sky.',
-    'Antares':        'One of the four Royal Stars of Persia. Its name means "rival of Mars" — both are red and similarly bright.',
+    'Antares':        'One of the four Royal Stars of Persia. Its name means "rival of Mars", since both are red and similarly bright.',
     'Aldebaran':      'One of the four Royal Stars of Persia, the "Eye of the Bull." Marks the face of Taurus.',
     'Regulus':        'One of the four Royal Stars of Persia, the "Heart of the Lion." Almost exactly on the ecliptic.',
     'Fomalhaut':      'One of the four Royal Stars of Persia, the "Autumn Star." It has a visible debris disk hinting at planets.',
@@ -1157,11 +1157,11 @@
     'Arcturus':       'One of the fastest-moving bright stars. Its light was used to switch on the lights at the 1933 Chicago World\'s Fair.',
     'Alpha Centauri': 'The closest star system to our Sun at 4.37 light-years. Likely hosts rocky planets.',
     'Hadar':          'Forms the "Southern Pointers" with Alpha Centauri, guiding navigators to the Southern Cross.',
-    'Deneb':          'Despite looking similar to Vega, Deneb is ~2,600 light-years away — one of the most luminous stars known.',
+    'Deneb':          'Despite looking similar to Vega, Deneb is ~2,600 light-years away, one of the most luminous stars known.',
     'Capella':        'Known as the "Goat Star," associated with the goat Amalthea who nursed Zeus in Greek myth.',
-    'Procyon':        'Its name means "before the dog" in Greek — it rises just minutes before Sirius, the Dog Star.',
+    'Procyon':        'Its name means "before the dog" in Greek; it rises just minutes before Sirius, the Dog Star.',
     'Alnitak':        'Eastern star of Orion\'s Belt. Robert Bauval linked it to the easternmost pyramid at Giza.',
-    'Alnilam':        'Middle star of Orion\'s Belt, roughly 2,000 light-years away — the most distant of the three.',
+    'Alnilam':        'Middle star of Orion\'s Belt, roughly 2,000 light-years away, the most distant of the three.',
     'Mintaka':        'Western star of Orion\'s Belt. It sits almost exactly on the celestial equator.',
     'Alcyone':        'Brightest of the Pleiades (Seven Sisters). Their rising and setting marked the agricultural calendar in cultures worldwide.',
     'Acrux':          'Brightest star in the Southern Cross. Used for southern hemisphere navigation for thousands of years.',
@@ -1169,39 +1169,39 @@
     'Dubhe':          'The outer pointer star of the Big Dipper, which draws a line directly to Polaris.',
     'Adhara':         'Second brightest star in Canis Major after Sirius. In the far ultraviolet it is the brightest star in the sky.',
     'Achernar':       'Marks the southern end of the river Eridanus. A key navigation star for cultures of the southern hemisphere.',
-    'Castor':         'A sextuple star system — six stars orbiting each other — that appears as one bright point to the eye.',
+    'Castor':         'A sextuple star system (six stars orbiting each other) that appears as one bright point to the eye.',
     'Pollux':              'The brighter of the Gemini twins. It has a confirmed planet, Pollux b, discovered in 2006.',
-    'Altair':              'In Chinese myth, the Cowherd Star — separated from Vega (the Weaver) by the Milky Way, reunited once a year in the Qixi festival.',
+    'Altair':              'In Chinese myth, the Cowherd Star, separated from Vega (the Weaver) by the Milky Way, reunited once a year in the Qixi festival.',
     'Alhena':              'Marks the foot of the Gemini twins. Bedouin navigators used it as a southern guide star when the Southern Cross was too low.',
-    'Wezen':               '"The Weight" in Arabic — a yellow-white supergiant 10,000 times more luminous than the Sun, visible only because of its enormous power.',
-    'Mirzam':              '"The Announcer" — it rises just before Sirius, and ancient Arab navigators watched for it as a herald of the brightest star.',
+    'Wezen':               '"The Weight" in Arabic: a yellow-white supergiant 10,000 times more luminous than the Sun, visible only because of its enormous power.',
+    'Mirzam':              '"The Announcer": it rises just before Sirius, and ancient Arab navigators watched for it as a herald of the brightest star.',
     'Avior':               'Used in celestial navigation to find south; marks the keel of the mythical ship Argo from the Jason and the Argonauts legend.',
     'Miaplacidus':         'Second brightest in Carina; ancient Polynesian voyagers used it as a steering star when crossing the South Pacific.',
-    'Regor':               'The brightest Wolf-Rayet star visible to the naked eye — its spectrum shows bare helium-burning layers exposed by stellar winds.',
+    'Regor':               'The brightest Wolf-Rayet star visible to the naked eye; its spectrum shows bare helium-burning layers exposed by stellar winds.',
     'Suhail':              '"The Bright One of the Ship" in Arabic; Arab navigators of the Indian Ocean used it alongside Canopus for open-sea wayfinding.',
-    'Naos':                'One of the hottest and most luminous naked-eye stars — a rare O-type blue supergiant radiating 500,000 times the Sun\'s energy.',
-    'Alphard':             '"The Solitary One" in Arabic — no bright neighbors anywhere near it. Ancient Chinese called the region the Red Bird of the South.',
+    'Naos':                'One of the hottest and most luminous naked-eye stars, a rare O-type blue supergiant radiating 500,000 times the Sun\'s energy.',
+    'Alphard':             '"The Solitary One" in Arabic: no bright neighbors anywhere near it. Ancient Chinese called the region the Red Bird of the South.',
     'Hamal':               'The vernal equinox was at Hamal 2,000 years ago, giving Aries its name as the first sign of the zodiac; precession has since moved the equinox into Pisces.',
     'Mirfak':              'Heart of Perseus the hero, who slew the Gorgon Medusa. Its open cluster of young stars is visible to the naked eye.',
-    'Algol':               '"The Demon Star" (Ra\'s al-Ghul in Arabic) — its eerie dimming every 2.87 days was noted by ancient astronomers and linked to the severed head of Medusa.',
+    'Algol':               '"The Demon Star" (Ra\'s al-Ghul in Arabic), whose eerie dimming every 2.87 days was noted by ancient astronomers and linked to the severed head of Medusa.',
     'Kaus Australis':      'Brightest star in Sagittarius; the galactic core of the Milky Way rises directly behind this star, making it a crossroads of ancient sky-watching.',
-    'Nunki':               'Ancient Babylonian name meaning "Yoke of the Sea" — Babylonian astronomers tracked it to predict flooding of the Euphrates River.',
+    'Nunki':               'Ancient Babylonian name meaning "Yoke of the Sea". Babylonian astronomers tracked it to predict flooding of the Euphrates River.',
     'Peacock':             'One of the very few stars with an official English proper name, formally assigned by the British Air Ministry in 1937 for navigational use.',
     'Atria':               'Brightest star of the Southern Triangle; indigenous Australian astronomers used the Southern Triangle to track seasons.',
     'Shaula':              '"The Raised Tail" of the Scorpion in Arabic; Polynesian wayfinders steered by it on open-ocean voyages across the Pacific.',
     'Sargas':              'Ancient Sumerian name; part of the Scorpion\'s tail that Mesopotamian court astronomers tracked for over two thousand years.',
-    'Dschubba':            '"The Forehead of the Scorpion" — it dramatically brightened in 2000 AD from magnitude 2.3 to 1.9 and has been variable ever since.',
-    'Rasalhague':          '"Head of the Serpent Bearer" — Ophiuchus is the 13th zodiac constellation that the Sun crosses, but classical astrology omitted it entirely.',
-    'Alphecca':            '"The Jewel of the Northern Crown" — in Norse myth the crown of Ariadne; the Romans saw it as a wreath of olive or laurel.',
+    'Dschubba':            '"The Forehead of the Scorpion": it dramatically brightened in 2000 AD from magnitude 2.3 to 1.9 and has been variable ever since.',
+    'Rasalhague':          '"Head of the Serpent Bearer". Ophiuchus is the 13th zodiac constellation that the Sun crosses, but classical astrology omitted it entirely.',
+    'Alphecca':            '"The Jewel of the Northern Crown": in Norse myth the crown of Ariadne; the Romans saw it as a wreath of olive or laurel.',
     'Alpheratz':           'The corner star shared between Andromeda and Pegasus; it anchors the Great Square of Pegasus, a navigation asterism used across many cultures.',
-    'Enif':                '"The Horse\'s Nose" in Arabic — a bright orange supergiant 185 times the Sun\'s radius, slowly pulsating and ejecting mass.',
-    'Markab':              '"The Saddle" of Pegasus — one corner of the Great Square used by sailors for millennia to orient themselves at sea.',
+    'Enif':                '"The Horse\'s Nose" in Arabic: a bright orange supergiant 185 times the Sun\'s radius, slowly pulsating and ejecting mass.',
+    'Markab':              '"The Saddle" of Pegasus, one corner of the Great Square used by sailors for millennia to orient themselves at sea.',
     'Gienah':              'Brightest in Corvus the Crow; Hipparchus measured nearby stars against Spica here around 127 BC, leading to his discovery of precession.',
     'Menkar':              '"The Nostril of the Sea Monster" in Arabic; in ancient Persian astrology it was one of the four Royal Stars of Heaven.',
-    'Ankaa':               'Brightest in Phoenix the Firebird — a constellation introduced by Dutch navigators in the 1590s; the Egyptians may have seen the mythical Bennu bird in this sky region.',
-    'Zubenelgenubi':       '"The Southern Claw" — once the pincer of Scorpius, claimed by Roman astronomers who needed a new constellation for the scales of justice, Libra.',
+    'Ankaa':               'Brightest in Phoenix the Firebird, a constellation introduced by Dutch navigators in the 1590s; the Egyptians may have seen the mythical Bennu bird in this sky region.',
+    'Zubenelgenubi':       '"The Southern Claw": once the pincer of Scorpius, claimed by Roman astronomers who needed a new constellation for the scales of justice, Libra.',
     'Gacrux':              'The red giant at the top of the Southern Cross; indigenous Australians have deep traditions tied to the Crux, using it to track seasons and in Dreamtime stories.',
-    'Alnair':              '"The Bright One" of Grus the Crane — used by Polynesian navigators in the south Pacific alongside the Southern Cross for open-ocean wayfinding.',
+    'Alnair':              '"The Bright One" of Grus the Crane, used by Polynesian navigators in the south Pacific alongside the Southern Cross for open-ocean wayfinding.',
   };
 
   populateHrStarSelect();
