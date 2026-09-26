@@ -120,7 +120,7 @@ python -m pytest
 | `GET /api/heliacal` | `lat, lon, year, star, arc_vision, site` | First heliacal rising date for a star |
 | `GET /api/sites` | none | List of all monument sites with coordinates and orientation notes |
 
-`year` uses astronomical convention: -2500 = 2501 BC, 0 = 1 BC, 1 = 1 AD.
+`year` uses astronomical convention: -2500 = 2501 BC, 0 = 1 BC, 1 = 1 AD. The web interface shows and accepts historical years instead (-2500 = 2500 BC, no year 0) and converts them, so permalinks carry the astronomical value.
 
 ---
 

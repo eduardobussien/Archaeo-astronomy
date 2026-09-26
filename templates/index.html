@@ -404,12 +404,11 @@
       <label>Year</label>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="value-display" id="year-display" style="flex:1">2,500 BC</div>
-        <input type="number" id="year-input" min="-12000" max="2024"
-          value="-2500"
+        <input type="number" id="year-input" value="-2500" title="Negative years are BC"
           style="width:80px;background:#1a2332;border:1px solid #2d4060;border-radius:4px;
                  color:#c9d1d9;font-size:12px;padding:3px 6px;text-align:center" />
       </div>
-      <input type="range" id="year-slider" min="-12000" max="2024" step="1" value="-2500" />
+      <input type="range" id="year-slider" step="1" />
     </div>
 
     <div class="row2" style="margin-top:14px">
@@ -545,8 +544,8 @@
     <label>Star</label>
     <select id="hr-star" style="width:100%; margin-top:4px"></select>
 
-    <label style="display:block; margin-top:10px">Search Year</label>
-    <input type="number" id="hr-year" value="-2780" style="width:100%; margin-top:4px" />
+    <label style="display:block; margin-top:10px">Search Year (negative = BC)</label>
+    <input type="number" id="hr-year" value="-2781" style="width:100%; margin-top:4px" />
 
     <button id="hr-btn" onclick="findHeliacalRising()">FIND HELIACAL RISING</button>
 
@@ -562,9 +561,9 @@
   </div>
 
   <div class="sidebar-footer">
-    Star positions calculated using<br />
-    precession &amp; proper motion models.<br />
-    Accuracy degrades before ~5000 BC.
+    Star positions use long-term precession<br />
+    (Vondrák 2011) and proper motion,<br />
+    valid across the full year range.
   </div>
 </aside>
 
@@ -681,15 +680,32 @@
     el.style.display = 'block';
   }
 
+  // ── Years ──
+  // Internally (slider, URL, API) years are astronomical: 0 = 1 BC, -1 = 2 BC.
+  // Everything the user types or reads is historical: -2500 = 2500 BC, no year 0.
+  const YEAR_MIN = -11999;                     // 12,000 BC
+  const YEAR_MAX = new Date().getFullYear();
+  const YEAR_DEFAULT = -2499;                  // 2,500 BC
+
+  function toAstronomicalYear(historical) { return historical < 0 ? historical + 1 : historical; }
+  function toHistoricalYear(astronomical) { return astronomical <= 0 ? astronomical - 1 : astronomical; }
+
   function formatYear(y) {
-    if (y < 0)  return Math.abs(y).toLocaleString() + ' BC';
-    if (y === 0) return '1 BC';
-    return y.toLocaleString() + ' AD';
+    return y <= 0 ? `${(1 - y).toLocaleString()} BC` : `${y.toLocaleString()} AD`;
+  }
+
+  function setYear(astronomical) {
+    const y = Math.max(YEAR_MIN, Math.min(YEAR_MAX, Math.round(astronomical)));
+    document.getElementById('year-slider').value = y;
+    document.getElementById('year-input').value = toHistoricalYear(y);
+    document.getElementById('year-display').textContent = formatYear(y);
+    return y;
   }
 
   function formatHour(h) {
-    const hh = Math.floor(h).toString().padStart(2, '0');
-    const mm = (h % 1 === 0.5) ? '30' : '00';
+    const minutes = Math.round(h * 60) % 1440;
+    const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+    const mm = String(minutes % 60).padStart(2, '0');
     return `${hh}:${mm}`;
   }
 
@@ -705,7 +721,7 @@
       title: 'Thuban, the Pyramid Star',
       desc:  'The north star of 2700 BC, locked above the pyramid north shaft',
       site:  'Great Pyramid of Giza',
-      year: -2700, month: 3, day: 20, hour: 22,
+      year: -2699, month: 3, day: 20, hour: 22,
     },
     {
       title: 'Pleiades at Teotihuacan',
@@ -717,13 +733,13 @@
       title: 'Orion at Stonehenge',
       desc:  'Orion dominates the winter sky over Stonehenge, 2500 BC',
       site:  'Stonehenge',
-      year: -2500, month: 12, day: 21, hour: 22,
+      year: -2499, month: 12, day: 21, hour: 22,
     },
     {
       title: 'Sirius and the Nile Flood',
-      desc:  'Sirius rises at dawn: Egyptian New Year and the start of the flood, 2780 BC',
+      desc:  'Sirius rises at dawn: Egyptian New Year and the start of the flood, 2781 BC',
       site:  'Great Pyramid of Giza',
-      year: -2780, month: 7, day: 17, hour: 5,
+      year: -2780, month: 6, day: 26, hour: 4,
     },
     {
       title: 'Göbekli Tepe at Night',
@@ -735,22 +751,20 @@
       title: 'Newgrange Winter Solstice',
       desc:  'Solstice sunrise beam pierces the passage tomb, 3200 BC',
       site:  'Newgrange',
-      year: -3200, month: 12, day: 21, hour: 9,
+      year: -3199, month: 12, day: 21, hour: 9,
     },
     {
       title: 'Malta Equinox Sunrise',
       desc:  'First light of spring frames the Mnajdra temple doorway, 3600 BC',
       site:  'Mnajdra Temple (Malta)',
-      year: -3600, month: 3, day: 20, hour: 6,
+      year: -3599, month: 3, day: 20, hour: 6,
     },
   ];
 
   function applyPreset(preset) {
     document.getElementById('site-select').value = preset.site;
     onSiteChange();
-    document.getElementById('year-slider').value = preset.year;
-    document.getElementById('year-input').value  = preset.year;
-    document.getElementById('year-display').textContent = formatYear(preset.year);
+    setYear(preset.year);
     document.getElementById('month-select').value = preset.month;
     document.getElementById('day').value = preset.day;
     document.getElementById('hour-slider').value = preset.hour;
@@ -809,19 +823,19 @@
   document.getElementById('site-select').addEventListener('change', onSiteChange);
 
   // ── Slider display updates ──
-  document.getElementById('year-slider').addEventListener('input', e => {
-    const v = +e.target.value;
-    document.getElementById('year-display').textContent = formatYear(v);
-    document.getElementById('year-input').value = v;
-  });
+  const yearSlider = document.getElementById('year-slider');
+  yearSlider.min = YEAR_MIN;
+  yearSlider.max = YEAR_MAX;
+  setYear(YEAR_DEFAULT);
+  yearSlider.addEventListener('input', e => setYear(+e.target.value));
 
   function applyYearInput() {
     const raw = parseInt(document.getElementById('year-input').value);
-    if (isNaN(raw)) return;
-    const v = Math.max(-12000, Math.min(2024, raw));
-    document.getElementById('year-input').value = v;
-    document.getElementById('year-slider').value = v;
-    document.getElementById('year-display').textContent = formatYear(v);
+    if (isNaN(raw) || raw === 0) {
+      setYear(+yearSlider.value);
+      return;
+    }
+    setYear(toAstronomicalYear(raw));
     fetchAndRender();
   }
   document.getElementById('year-input').addEventListener('change', applyYearInput);
@@ -856,10 +870,17 @@
   async function findHeliacalRising() {
     const btn  = document.getElementById('hr-btn');
     const star = document.getElementById('hr-star').value;
-    const year = document.getElementById('hr-year').value;
+    const historical = parseInt(document.getElementById('hr-year').value);
     const site = document.getElementById('site-select').value;
     const lat  = document.getElementById('lat').value;
     const lon  = document.getElementById('lon').value;
+
+    if (isNaN(historical) || historical === 0) {
+      document.getElementById('hr-result').innerHTML =
+        '<p class="hr-not-found">Enter a year, using negative numbers for BC (there is no year 0).</p>';
+      return;
+    }
+    const year = toAstronomicalYear(historical);
 
     btn.disabled = true;
     btn.textContent = 'SEARCHING…';
@@ -888,15 +909,14 @@
       el.innerHTML = `<p class="hr-not-found">${data.message}</p>`;
       return;
     }
-    const era     = data.year < 0 ? `${Math.abs(data.year)} BC` : `${data.year} AD`;
-    const dateStr = `${HR_MONTHS[data.month]} ${data.day}, ${era}`;
+    const dateStr = `${HR_MONTHS[data.month]} ${data.day}, ${formatYear(data.year)}`;
     const note    = STAR_NOTES[star] || '';
     const snapHour = Math.round(data.dawn_hour_local * 2) / 2;
 
     el.innerHTML = `
       <div class="hr-card">
         <div class="hr-card-star">${star}</div>
-        <div class="hr-card-date">${dateStr} &mdash; ${formatHour(data.dawn_hour_local)} local</div>
+        <div class="hr-card-date">${dateStr} at ${formatHour(data.dawn_hour_local)} local</div>
         <div class="hr-card-stats">
           <span>Star alt: <strong>${data.star_altitude}°</strong></span>
           <span>Sun alt: <strong>${data.sun_altitude}°</strong></span>
@@ -910,9 +930,7 @@
   }
 
   function jumpToHeliacal(year, month, day, hour) {
-    document.getElementById('year-slider').value        = year;
-    document.getElementById('year-input').value         = year;
-    document.getElementById('year-display').textContent = formatYear(year);
+    setYear(year);
     document.getElementById('month-select').value       = month;
     document.getElementById('day').value                = day;
     document.getElementById('hour-slider').value        = hour;
@@ -969,10 +987,7 @@
     }
     onSiteChange();
 
-    const year = p.get('year');
-    document.getElementById('year-slider').value        = year;
-    document.getElementById('year-input').value         = year;
-    document.getElementById('year-display').textContent = formatYear(+year);
+    setYear(+p.get('year') || 0);
 
     if (p.has('month')) document.getElementById('month-select').value = p.get('month');
     if (p.has('day'))   document.getElementById('day').value          = p.get('day');
@@ -1324,12 +1339,7 @@
     while (month > 12) { month -= 12; year++; }
     while (month <  1) { month += 12; year--; }
 
-    // clamp to slider range
-    year = Math.max(-12000, Math.min(2024, year));
-
-    document.getElementById('year-slider').value        = year;
-    document.getElementById('year-input').value         = year;
-    document.getElementById('year-display').textContent = formatYear(year);
+    setYear(year);
     document.getElementById('month-select').value    = month;
     document.getElementById('day').value             = day;
     document.getElementById('hour-slider').value     = hour;

@@ -9,7 +9,7 @@ from astropy.utils.exceptions import AstropyWarning
 import erfa
 
 from data import STARS, MONUMENTS
-from alignment import calculate_alignments, check_alignments, get_observation_time
+from alignment import calculate_alignments, check_alignments, format_year
 
 warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', category=erfa.ErfaWarning)
@@ -182,8 +182,7 @@ def plot_sky_map(results, monument_name=None, threshold_deg=2.0, save_path=None)
     )
 
     # --- title ---
-    era  = "BC" if results['_year'] < 0 else "AD"
-    date = f"{abs(results['_year'])} {era}-{results['_month']:02d}-{results['_day']:02d}  {results['_hour']:.1f}h"
+    date = f"{format_year(results['_year'])}, {results['_month']:02d}-{results['_day']:02d}  {results['_hour']:.1f}h"
     loc  = f"({results['_lat']:.2f}°, {results['_lon']:.2f}°)"
     title_parts = [date, loc]
     if monument_name:
@@ -213,14 +212,15 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  python src/visualize.py --monument Stonehenge --year -2500\n"
-            "  python src/visualize.py --monument Giza --year -10499 --hour 22\n"
-            "  python src/visualize.py --lat 51.17 --lon -1.82 --year -2500 --save outputs/map.png\n"
+            "  python src/visualize.py --monument Stonehenge --year -2499              (2500 BC)\n"
+            "  python src/visualize.py --monument Giza --year -10499 --hour 22        (10,500 BC)\n"
+            "  python src/visualize.py --lat 51.17 --lon -1.82 --year -2499 --save outputs/map.png\n"
         ),
     )
     parser.add_argument("--lat",    type=float, default=29.9792)
     parser.add_argument("--lon",    type=float, default=31.1342)
-    parser.add_argument("--year",   type=int,   default=-2500)
+    parser.add_argument("--year",   type=int,   default=-2499,
+                        help="Astronomical year: 0 = 1 BC, -2499 = 2500 BC")
     parser.add_argument("--month",  type=int,   default=3)
     parser.add_argument("--day",    type=int,   default=20)
     parser.add_argument("--hour",   type=float, default=22.0,

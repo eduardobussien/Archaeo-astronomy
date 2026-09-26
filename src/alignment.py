@@ -39,6 +39,11 @@ def _date_to_jd(year, month, day, hour):
     return math.floor(365.25 * (y + 4716)) + math.floor(30.6001 * (m + 1)) + d + b - 1524.5
 
 
+def format_year(year):
+    """Label an astronomical year (0 = 1 BC, -1 = 2 BC) in historical form."""
+    return f"{1 - year} BC" if year <= 0 else f"{year} AD"
+
+
 def get_observation_time(year, month, day, hour):
     """
     Build an astropy Time for any historical date.
@@ -282,11 +287,10 @@ def check_alignments(star_results, orientation_az, threshold_deg=2.0):
 # ---------------------------------------------------------------------------
 
 def _print_star_table(results):
-    era = "BC" if results['_year'] < 0 else "AD"
     engine = results.get('method', 'astropy')
     print(f"\n=== Archaeo-Astronomy Alignment [{engine}] ===")
     print(f"Location : {results['_lat']:.4f}, {results['_lon']:.4f}")
-    print(f"Date     : {abs(results['_year'])} {era}-{results['_month']:02d}-{results['_day']:02d}")
+    print(f"Date     : {format_year(results['_year'])}, {results['_month']:02d}-{results['_day']:02d}")
     print(f"Time     : {results['_hour']:05.2f}h  |  JD: {results['jd']:.2f}  |  LST: {results['lst']:.2f}")
     print("-" * 62)
     print(f"{'STAR':<12s} | {'CONST':<14s} | {'ALT':>8s} | {'AZ':>8s} | STATUS")
@@ -316,13 +320,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Archaeo-Astronomy Alignment Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Example:\n  python src/alignment.py --monument Stonehenge --year -2500\n"
+        epilog="Example:\n  python src/alignment.py --monument Stonehenge --year -2499   (2500 BC)\n"
                "  python src/alignment.py --list-monuments",
     )
     parser.add_argument("--lat",    type=float, default=29.9792)
     parser.add_argument("--lon",    type=float, default=31.1342)
-    parser.add_argument("--year",   type=int,   default=-2500,
-                        help="Historical year (negative = BC)")
+    parser.add_argument("--year",   type=int,   default=-2499,
+                        help="Astronomical year: 0 = 1 BC, -2499 = 2500 BC")
     parser.add_argument("--month",  type=int,   default=3)
     parser.add_argument("--day",    type=int,   default=20)
     parser.add_argument("--hour",   type=float, default=0.0,

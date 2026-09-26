@@ -4,7 +4,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from flask import Flask, jsonify, request, render_template
-from alignment import calculate_alignments, calculate_ecliptic, find_heliacal_rising
+from alignment import calculate_alignments, calculate_ecliptic, find_heliacal_rising, format_year
 from data import MONUMENTS, STARS
 
 app = Flask(__name__)
@@ -55,7 +55,7 @@ def stars():
 
     results = calculate_alignments(lat, lon, year, month, day, hour)
 
-    era = 'BC' if year < 0 else 'AD'
+    era = 'BC' if year <= 0 else 'AD'
     return jsonify({
         'meta': {
             'lat':    lat,
@@ -117,10 +117,9 @@ def heliacal():
 
     result = find_heliacal_rising(lat, lon, year, star, arc_vision)
     if result is None:
-        era = 'BC' if year < 0 else 'AD'
         return jsonify({
             'found': False,
-            'message': f"No heliacal rising of {star} found at this location in {abs(year)} {era}.",
+            'message': f"No heliacal rising of {star} found at this location in {format_year(year)}.",
         })
 
     return jsonify({'found': True, **result})
