@@ -2,16 +2,12 @@ import argparse
 import math
 import warnings
 import numpy as np
-from astropy.time import Time
-from astropy.coordinates import EarthLocation, AltAz, get_body, solar_system_ephemeris
-import astropy.units as u
-from astropy.utils.exceptions import AstropyWarning
 import erfa
 
 from data import STARS, MONUMENTS
 from precession import star_altaz, ecliptic_altaz, local_mean_sidereal_time
+from solar_system import body_altaz, sun_altitude
 
-warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', category=erfa.ErfaWarning)
 
 _STAR_NAMES = list(STARS)
@@ -44,66 +40,41 @@ def format_year(year):
     return f"{1 - year} BC" if year <= 0 else f"{year} AD"
 
 
-def get_observation_time(year, month, day, hour):
+_DAYS_PER_400_YEARS = 146097
+
+
+def _jd_to_date(jd):
     """
-    Build an astropy Time for any historical date.
+    Proleptic Gregorian (year, month, day) containing a Julian Date.
 
-    Uses Julian Day Number (avoids the ISO parser, which rejects BC years).
-    UT1 scale is used so astropy treats the JD directly as Earth rotation
-    time; delta_ut1_utc is pre-set to 0 so no IERS lookup is attempted.
+    Inverse of _date_to_jd (Meeus ch. 7). Negative Julian Dates are first
+    shifted forward by whole 400-year Gregorian cycles, over which the
+    calendar repeats exactly.
     """
-    jd = _date_to_jd(year, month, day, hour)
-    t = Time(jd, format='jd', scale='ut1')
-    t.delta_ut1_utc = 0.0   # bypass the IERS table; ΔUT1=0 is the best
-    return t                 # estimate for ancient dates anyway
-
-
-def _gmst_degrees(jd):
-    """
-    Greenwich Mean Sidereal Time in degrees via the Meeus formula.
-    Valid for any Julian Date (no ERFA dependency).
-    """
-    D = jd - 2451545.0
-    T = D / 36525.0
-    gmst = (280.46061837 + 360.98564736629 * D
-            + 0.000387933 * T**2 - T**3 / 38710000.0)
-    return gmst % 360.0
-
-
-_PLANET_NAMES = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn']
-solar_system_ephemeris.set('builtin')   # set once at import; safe across threads
-
-
-def _calculate_planets(obs_time, loc, altaz_frame):
-    """Return altitude/azimuth for the Sun, Moon, and five naked-eye planets."""
-    planets = {}
-    for name in _PLANET_NAMES:
-        try:
-            body  = get_body(name, obs_time, location=loc)
-            altaz = body.transform_to(altaz_frame)
-            planets[name.capitalize()] = {
-                'altitude': float(altaz.alt.degree),
-                'azimuth':  float(altaz.az.degree),
-                'visible':  bool(altaz.alt.degree > 0),
-            }
-        except Exception:
-            pass  # skip bodies outside the builtin ephemeris range
-    return planets
+    cycles = max(0, math.ceil(-jd / _DAYS_PER_400_YEARS) + 1)
+    z = math.floor(jd + 0.5) + cycles * _DAYS_PER_400_YEARS
+    alpha = math.floor((z - 1867216.25) / 36524.25)
+    b = z + 1 + alpha - math.floor(alpha / 4) + 1524
+    c = math.floor((b - 122.1) / 365.25)
+    e = math.floor((b - math.floor(365.25 * c)) / 30.6001)
+    day = b - math.floor(365.25 * c) - math.floor(30.6001 * e)
+    month = e - 1 if e < 14 else e - 13
+    year = c - 4716 if month > 2 else c - 4715
+    return year - 400 * cycles, month, day
 
 
 def calculate_alignments(lat, lon, year, month, day, hour):
     """
-    Compute altitude and azimuth for every star in the catalog.
+    Compute altitude and azimuth for every star, the Sun, Moon and planets.
 
-    Stars use the long-term precession engine in precession.py at every epoch.
-    Planets use astropy's builtin ephemeris and are omitted before ~4800 BC,
-    where ERFA's calendar routines refuse the date.
+    Stars use the long-term precession engine in precession.py; the Sun, Moon
+    and planets come from solar_system.py and share the same Earth rotation.
 
     Returns a dict with keys:
         jd      - Julian Date (UT1)
         lst     - Local mean sidereal time in degrees
         stars   - {name: {altitude, azimuth, visible}} for each star
-        planets - {name: {altitude, azimuth, visible}}, possibly empty
+        planets - {name: {altitude, azimuth, visible}} for the Sun, Moon and planets
         method  - name of the star position model
     """
     # Convert local mean solar time to UT (the user picks local time; lon/15 is the offset)
@@ -117,12 +88,10 @@ def calculate_alignments(lat, lon, year, month, day, hour):
         for name, a, z in zip(_STAR_NAMES, alt, az)
     }
 
-    try:
-        obs_time = get_observation_time(year, month, day, hour_ut)
-        loc = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
-        planets = _calculate_planets(obs_time, loc, AltAz(obstime=obs_time, location=loc))
-    except erfa.ErfaError:
-        planets = {}
+    planets = {
+        name: {'altitude': a, 'azimuth': z, 'visible': a > 0}
+        for name, (a, z) in body_altaz(jd, lat, lon).items()
+    }
 
     return {
         'jd': jd,
@@ -133,111 +102,67 @@ def calculate_alignments(lat, lon, year, month, day, hour):
     }
 
 
-def _approx_sun_altitude(jd, lat, lon):
+def _dawn_hours(midnights, lat, lon, arc_vision):
     """
-    Low-precision Sun altitude (±1° within ±3000 yr of J2000).
-    Uses Meeus Astronomical Algorithms ch. 25.  jd must be UT-based.
+    Local hour (0-14) at which the Sun rises through arc_vision on each day,
+    by bisection over all days at once. NaN where it never crosses (polar
+    day or night).
     """
-    T = (jd - 2451545.0) / 36525.0
-    L0 = (280.46646 + 36000.76983 * T + 0.0003032 * T**2) % 360
-    M  = math.radians((357.52911 + 35999.05029 * T - 0.0001537 * T**2) % 360)
-    C  = ((1.914602 - 0.004817 * T - 0.000014 * T**2) * math.sin(M)
-          + (0.019993 - 0.000101 * T) * math.sin(2 * M)
-          + 0.000289 * math.sin(3 * M))
-    sun_lon = math.radians((L0 + C) % 360)
-    eps     = math.radians(23.439291 - 0.013004 * T)
-    sun_ra  = math.atan2(math.cos(eps) * math.sin(sun_lon), math.cos(sun_lon))
-    sun_dec = math.asin(max(-1.0, min(1.0, math.sin(eps) * math.sin(sun_lon))))
-    lst     = math.radians((_gmst_degrees(jd) + lon) % 360)
-    ha      = lst - sun_ra
-    sin_alt = (math.sin(math.radians(lat)) * math.sin(sun_dec)
-               + math.cos(math.radians(lat)) * math.cos(sun_dec) * math.cos(ha))
-    return math.degrees(math.asin(max(-1.0, min(1.0, sin_alt))))
-
-
-def _find_dawn_hour(lat, lon, year, month, day, arc_vision=-10.0):
-    """
-    Binary search for the local hour (0–14) when the Sun crosses arc_vision
-    on the way up (morning twilight).  Returns None for polar day/night.
-    """
-    def sun_alt(h):
-        return _approx_sun_altitude(_date_to_jd(year, month, day, h - lon / 15.0), lat, lon)
-
-    alt_lo, alt_hi = sun_alt(0.0), sun_alt(14.0)
-    lo, hi = 0.0, 14.0
-    # Need arc_vision to be strictly between the two endpoints
-    if not ((alt_lo < arc_vision < alt_hi) or (alt_hi < arc_vision < alt_lo)):
-        return None
+    lo = np.zeros_like(midnights)
+    hi = np.full_like(midnights, 14.0)
+    crosses = ((sun_altitude(midnights, lat, lon) < arc_vision)
+               & (sun_altitude(midnights + hi / 24.0, lat, lon) > arc_vision))
     for _ in range(20):
         mid = (lo + hi) / 2.0
-        alt_mid = sun_alt(mid)
-        if (alt_lo - arc_vision) * (alt_mid - arc_vision) <= 0:
-            hi, alt_hi = mid, alt_mid
-        else:
-            lo, alt_lo = mid, alt_mid
-    return (lo + hi) / 2.0
+        below = sun_altitude(midnights + mid / 24.0, lat, lon) < arc_vision
+        lo = np.where(below, mid, lo)
+        hi = np.where(below, hi, mid)
+    return np.where(crosses, (lo + hi) / 2.0, np.nan)
 
 
 def find_heliacal_rising(lat, lon, year, star_name, arc_vision=-10.0):
     """
-    Scan day-by-day to find when star_name first becomes visible at
-    astronomical twilight (Sun altitude = arc_vision) in the target year.
+    Find the first dawn in the target year on which star_name is visible
+    (altitude above 0.5 deg while the Sun is at arc_vision) after a dawn on
+    which it was not.
 
-    Starts scanning from Oct 1 of (year-1) so the initial visibility state
-    is correctly seeded before Jan 1 of the target year.
+    The scan starts on 1 October of the previous year so that a star already
+    visible on 1 January is not reported as rising that day.
 
     Returns a dict with the date and geometry, or None if not found.
     """
     if star_name not in STARS:
         return None
 
-    star_info = STARS[star_name]
-    DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    s = STARS[star_name]
+    first_midnight = _date_to_jd(year - 1, 10, 1, -lon / 15.0)
+    n_days = round(_date_to_jd(year + 1, 1, 1, -lon / 15.0) - first_midnight)
+    first_target_day = round(_date_to_jd(year, 1, 1, -lon / 15.0) - first_midnight)
+    midnights = first_midnight + np.arange(n_days)
 
-    scan_year, scan_month, scan_day = year - 1, 10, 1
-    prev_visible = None
+    dawn = _dawn_hours(midnights, lat, lon, arc_vision)
+    has_dawn = ~np.isnan(dawn)
+    dawn_jd = midnights + np.where(has_dawn, dawn, 0.0) / 24.0
+    star_alt, star_az = star_altaz(s['ra'], s['dec'], s['pm_ra'], s['pm_dec'], s['dist'],
+                                   dawn_jd, lat, lon)
+    visible = has_dawn & (star_alt > 0.5)
 
-    for _ in range(460):   # 92 days warm-up + 366 target year + buffer
-        dawn_hour = _find_dawn_hour(lat, lon, scan_year, scan_month, scan_day, arc_vision)
-        star_alt = star_az = 0.0
-        visible = False
+    rising = np.flatnonzero(visible[1:] & ~visible[:-1]) + 1
+    rising = rising[rising >= first_target_day]
+    if rising.size == 0:
+        return None
 
-        if dawn_hour is not None:
-            jd = _date_to_jd(scan_year, scan_month, scan_day, dawn_hour - lon / 15.0)
-            star_alt, star_az = (float(v) for v in star_altaz(
-                star_info['ra'], star_info['dec'], star_info['pm_ra'],
-                star_info['pm_dec'], star_info['dist'], jd, lat, lon))
-            visible = star_alt > 0.5
-
-        if scan_year == year and visible and prev_visible is False:
-            sun_alt = _approx_sun_altitude(
-                _date_to_jd(scan_year, scan_month, scan_day, dawn_hour - lon / 15.0),
-                lat, lon,
-            )
-            return {
-                'year':  scan_year,
-                'month': scan_month,
-                'day':   scan_day,
-                'star_altitude':   round(star_alt, 2),
-                'star_azimuth':    round(star_az, 2),
-                'sun_altitude':    round(sun_alt, 2),
-                'dawn_hour_local': round(dawn_hour, 2),
-            }
-
-        prev_visible = visible
-
-        # Advance one day
-        scan_day += 1
-        if scan_day > DAYS[scan_month - 1]:
-            scan_day = 1
-            scan_month += 1
-            if scan_month > 12:
-                scan_month = 1
-                scan_year += 1
-        if scan_year > year:
-            break
-
-    return None
+    k = rising[0]
+    y, m, d = _jd_to_date(midnights[k] + 0.5)
+    return {
+        'year':  y,
+        'month': m,
+        'day':   d,
+        'star_altitude':   round(float(star_alt[k]), 2),
+        'star_azimuth':    round(float(star_az[k]), 2),
+        'sun_altitude':    round(float(sun_altitude(dawn_jd[k], lat, lon)), 2),
+        'dawn_hour_local': round(float(dawn[k]), 2),
+    }
 
 
 def calculate_ecliptic(lat, lon, year, month, day, hour):
@@ -287,7 +212,7 @@ def check_alignments(star_results, orientation_az, threshold_deg=2.0):
 # ---------------------------------------------------------------------------
 
 def _print_star_table(results):
-    engine = results.get('method', 'astropy')
+    engine = results['method']
     print(f"\n=== Archaeo-Astronomy Alignment [{engine}] ===")
     print(f"Location : {results['_lat']:.4f}, {results['_lon']:.4f}")
     print(f"Date     : {format_year(results['_year'])}, {results['_month']:02d}-{results['_day']:02d}")

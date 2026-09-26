@@ -73,12 +73,16 @@ app.py              Flask server and API endpoints
 src/
   alignment.py      Site and date calculations (star table, ecliptic, heliacal rising)
   precession.py     Long-term precession, Earth rotation and proper motion engine
+  solar_system.py   Sun, Moon and planets from ERFA's analytic theories
+  timescales.py     Delta T (difference between uniform time and Earth rotation time)
   data.py           Star catalog (60 stars, J2000 positions + proper motion) and monument list
   visualize.py      Static chart export helpers
 templates/
   index.html        Single-page app, all UI and Plotly.js rendering
 tests/
-  test_precession.py  Validation against astropy and historical anchors
+  test_precession.py    Stars: astropy, pole stars, Orion's Belt, Sirius
+  test_solar_system.py  Sun, Moon, planets: JPL DE441 and astropy; Delta T: NASA table
+  test_alignment.py     Year labels and calendar conversion
 requirements.txt
 ```
 
@@ -94,11 +98,24 @@ Star positions use a single model at every epoch (`src/precession.py`):
 
 Positions are geometric mean places: nutation, aberration and refraction (all under half a degree) are not applied.
 
-The model is checked in `tests/` against astropy near J2000 (under 1 arcmin), against known pole stars (Thuban in 2830 BC, Vega in 12,000 BC), against the lowest culmination of Orion's Belt near 10,500 BC, and against the Sothic heliacal rising of Sirius in 2780 BC.
+The model is checked in `tests/` against astropy near J2000 (under 1 arcmin), against known pole stars (Thuban around 2830 BC, Vega around 12,000 BC), against the lowest culmination of Orion's Belt near 10,500 BC, and against the Sothic heliacal rising of Sirius in 2781 BC.
 
-Planets use astropy's builtin ephemeris and are shown only after ~4800 BC.
+### Sun, Moon and planets
 
-**Heliacal rising** is found by scanning 460 days starting from the prior October, checking each dawn (binary search on Sun altitude = arc-vision threshold, default -10 degrees) whether the target star is above the horizon and the Sun is below it.
+The Earth's rotation has slowed over the millennia, so clock time (UT1, which follows the rotation) drifts away from the uniform time (TT) that orbital theories need. The difference, Delta T, is about 16.6 hours at 2500 BC. `src/timescales.py` uses the Espenak & Meeus (2006) expressions based on Morrison & Stephenson (2004); ignoring it would put the Moon about 8 degrees out of place at 2500 BC.
+
+Positions come from ERFA's analytic theories (`epv00` for the Earth, `plan94` for the planets, `moon98` for the Moon), are rotated into the local sky by the same engine as the stars, and include the Moon's parallax. Measured against JPL's DE441 ephemeris at the same instant, the largest error across all seven bodies is:
+
+| Epoch | Largest error |
+|---|---|
+| 1000 BC | 0.09 degrees |
+| 3000 BC | 0.18 degrees |
+| 4000 BC | 0.35 degrees |
+| 9000 BC | 1.3 degrees (Moon) |
+
+Delta T itself is uncertain for prehistoric dates: published long-term models differ by about two hours at 10,500 BC, enough to move the Moon by about a degree. The Sun and planets move slowly enough that this barely matters for them.
+
+**Heliacal rising** is found by checking every dawn from the previous October to the end of the target year at once: a vectorized bisection finds when the Sun reaches the arc-vision threshold (default -10 degrees) each morning, and the first dawn in the target year on which the star is visible after a dawn on which it was not is reported.
 
 To run the tests:
 
@@ -127,7 +144,7 @@ python -m pytest
 ## Dependencies
 
 - **Flask:** web server
-- **pyerfa:** IAU SOFA routines, including the Vondrák 2011 long-term precession
-- **astropy:** planet positions and test reference values
+- **pyerfa:** IAU SOFA routines: the Vondrák 2011 long-term precession and the Sun, Moon and planet theories
+- **astropy:** independent reference values in the tests
 - **numpy:** vectorized star and time calculations
 - **Plotly.js** (CDN): interactive polar chart in the browser

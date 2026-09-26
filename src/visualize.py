@@ -5,13 +5,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
-from astropy.utils.exceptions import AstropyWarning
 import erfa
 
 from data import STARS, MONUMENTS
 from alignment import calculate_alignments, check_alignments, format_year
 
-warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', category=erfa.ErfaWarning)
 
 # One color per constellation group

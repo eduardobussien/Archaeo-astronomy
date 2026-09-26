@@ -561,9 +561,9 @@
   </div>
 
   <div class="sidebar-footer">
-    Star positions use long-term precession<br />
-    (Vondrák 2011) and proper motion,<br />
-    valid across the full year range.
+    Stars: long-term precession (Vondrák 2011)<br />
+    and proper motion. Sun, Moon and planets:<br />
+    analytic theories corrected for ΔT.
   </div>
 </aside>
 
@@ -659,13 +659,15 @@
     if (data.monument) {
       const az = data.monument.orientation_az;
       let nearest = null, minDiff = Infinity;
-      for (const [name, s] of visible) {
+      const visibleBodies = Object.entries(data.planets || {}).filter(([, p]) => p.visible);
+      for (const [name, s] of [...visible, ...visibleBodies]) {
         let diff = Math.abs(s.azimuth - az);
         if (diff > 180) diff = 360 - diff;
         if (diff < minDiff) { minDiff = diff; nearest = name; }
       }
       if (nearest && minDiff <= 15) {
-        text += ` The monument aligns ${azToCardinal(az)}, near ${nearest} (${minDiff.toFixed(0)}° away).`;
+        const label = (nearest === 'Sun' || nearest === 'Moon') ? `the ${nearest}` : nearest;
+        text += ` The monument aligns ${azToCardinal(az)}, near ${label} (${minDiff.toFixed(0)}° away).`;
       } else {
         text += ` The monument faces ${azToCardinal(az)}.`;
       }
@@ -755,9 +757,9 @@
     },
     {
       title: 'Malta Equinox Sunrise',
-      desc:  'First light of spring frames the Mnajdra temple doorway, 3600 BC',
+      desc:  'The equinox Sun climbs along the Mnajdra temple doorway axis, 3600 BC',
       site:  'Mnajdra Temple (Malta)',
-      year: -3599, month: 3, day: 20, hour: 6,
+      year: -3599, month: 3, day: 20, hour: 6.5,
     },
   ];
 
