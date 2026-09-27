@@ -35,6 +35,13 @@ def _date_to_jd(year, month, day, hour):
     return math.floor(365.25 * (y + 4716)) + math.floor(30.6001 * (m + 1)) + d + b - 1524.5
 
 
+def days_in_month(year, month):
+    """Length of a proleptic Gregorian month (astronomical year numbering)."""
+    if month == 2:
+        return 29 if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0 else 28
+    return 30 if month in (4, 6, 9, 11) else 31
+
+
 def format_year(year):
     """Label an astronomical year (0 = 1 BC, -1 = 2 BC) in historical form."""
     return f"{1 - year} BC" if year <= 0 else f"{year} AD"

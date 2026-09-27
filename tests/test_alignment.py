@@ -1,6 +1,6 @@
 import pytest
 
-from alignment import _date_to_jd, _jd_to_date, format_year
+from alignment import _date_to_jd, _jd_to_date, days_in_month, format_year
 
 
 @pytest.mark.parametrize('year, label', [
@@ -22,3 +22,11 @@ def test_jd_to_date_inverts_date_to_jd(year, month, day, hour):
     if (month, day) == (2, 29) and not is_leap:
         pytest.skip('not a leap year')
     assert _jd_to_date(_date_to_jd(year, month, day, hour)) == (year, month, day)
+
+
+@pytest.mark.parametrize('year', [-12000, -2500, -400, -100, -1, 0, 1, 1900, 2000, 2023, 2024])
+def test_days_in_month_agrees_with_julian_dates(year):
+    for month in range(1, 13):
+        next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
+        length = _date_to_jd(next_year, next_month, 1, 0.0) - _date_to_jd(year, month, 1, 0.0)
+        assert days_in_month(year, month) == round(length)

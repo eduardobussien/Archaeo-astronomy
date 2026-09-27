@@ -693,7 +693,7 @@
   function toHistoricalYear(astronomical) { return astronomical <= 0 ? astronomical - 1 : astronomical; }
 
   function formatYear(y) {
-    return y <= 0 ? `${(1 - y).toLocaleString()} BC` : `${y.toLocaleString()} AD`;
+    return y <= 0 ? `${(1 - y).toLocaleString()} BC` : `${y} AD`;
   }
 
   function setYear(astronomical) {
@@ -702,6 +702,21 @@
     document.getElementById('year-input').value = toHistoricalYear(y);
     document.getElementById('year-display').textContent = formatYear(y);
     return y;
+  }
+
+  // Proleptic Gregorian month length for an astronomical year.
+  function daysInMonth(year, month) {
+    if (month === 2) return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28;
+    return [4, 6, 9, 11].includes(month) ? 30 : 31;
+  }
+
+  function clampDay() {
+    const dayInput = document.getElementById('day');
+    const max = daysInMonth(+document.getElementById('year-slider').value,
+                            +document.getElementById('month-select').value);
+    const day = parseInt(dayInput.value);
+    dayInput.max = max;
+    dayInput.value = isNaN(day) ? 1 : Math.max(1, Math.min(max, day));
   }
 
   function formatHour(h) {
@@ -840,6 +855,8 @@
     setYear(toAstronomicalYear(raw));
     fetchAndRender();
   }
+  document.getElementById('month-select').addEventListener('change', clampDay);
+  document.getElementById('day').addEventListener('change', clampDay);
   document.getElementById('year-input').addEventListener('change', applyYearInput);
   document.getElementById('year-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') applyYearInput();
@@ -869,36 +886,51 @@
     });
   }
 
+  // ── API helpers ──
+  async function getJson(url) {
+    const r = await fetch(url);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || `Request failed (${r.status})`);
+    return body;
+  }
+
+  function locationParams() {
+    const site = document.getElementById('site-select').value;
+    return site
+      ? { site }
+      : { lat: document.getElementById('lat').value, lon: document.getElementById('lon').value };
+  }
+
+  function showHeliacalMessage(text) {
+    const p = document.createElement('p');
+    p.className = 'hr-not-found';
+    p.textContent = text;
+    document.getElementById('hr-result').replaceChildren(p);
+  }
+
   async function findHeliacalRising() {
     const btn  = document.getElementById('hr-btn');
     const star = document.getElementById('hr-star').value;
     const historical = parseInt(document.getElementById('hr-year').value);
-    const site = document.getElementById('site-select').value;
-    const lat  = document.getElementById('lat').value;
-    const lon  = document.getElementById('lon').value;
 
     if (isNaN(historical) || historical === 0) {
-      document.getElementById('hr-result').innerHTML =
-        '<p class="hr-not-found">Enter a year, using negative numbers for BC (there is no year 0).</p>';
+      showHeliacalMessage('Enter a year, using negative numbers for BC (there is no year 0).');
       return;
     }
     const year = toAstronomicalYear(historical);
+    if (year < YEAR_MIN || year > YEAR_MAX) {
+      showHeliacalMessage(`Enter a year between ${formatYear(YEAR_MIN)} and ${formatYear(YEAR_MAX)}.`);
+      return;
+    }
 
     btn.disabled = true;
     btn.textContent = 'SEARCHING…';
 
-    const params = site
-      ? `&site=${encodeURIComponent(site)}`
-      : `&lat=${lat}&lon=${lon}`;
-    const url = `/api/heliacal?star=${encodeURIComponent(star)}&year=${year}${params}`;
-
+    const query = new URLSearchParams({ star, year, ...locationParams() });
     try {
-      const data = await fetch(url).then(r => r.json());
-      displayHeliacalResult(data, star);
+      displayHeliacalResult(await getJson(`/api/heliacal?${query}`), star);
     } catch (e) {
-      console.error(e);
-      document.getElementById('hr-result').innerHTML =
-        '<p class="hr-not-found">Request failed. See console.</p>';
+      showHeliacalMessage(e.message);
     } finally {
       btn.disabled = false;
       btn.textContent = 'FIND HELIACAL RISING';
@@ -908,7 +940,7 @@
   function displayHeliacalResult(data, star) {
     const el = document.getElementById('hr-result');
     if (!data.found) {
-      el.innerHTML = `<p class="hr-not-found">${data.message}</p>`;
+      showHeliacalMessage(data.message);
       return;
     }
     const dateStr = `${HR_MONTHS[data.month]} ${data.day}, ${formatYear(data.year)}`;
@@ -1016,22 +1048,16 @@
     const btn = document.getElementById('view-btn');
     if (!silent) { btn.disabled = true; btn.textContent = 'LOADING…'; }
 
-    const site  = document.getElementById('site-select').value;
-    const year  = document.getElementById('year-slider').value;
-    const month = document.getElementById('month-select').value;
-    const day   = document.getElementById('day').value;
-    const hour  = document.getElementById('hour-slider').value;
-    const lat   = document.getElementById('lat').value;
-    const lon   = document.getElementById('lon').value;
+    clampDay();
+    const query = new URLSearchParams({
+      year:  document.getElementById('year-slider').value,
+      month: document.getElementById('month-select').value,
+      day:   document.getElementById('day').value,
+      hour:  document.getElementById('hour-slider').value,
+      ...locationParams(),
+    });
 
-    const params = site
-      ? `&site=${encodeURIComponent(site)}`
-      : `&lat=${lat}&lon=${lon}`;
-    const base = `year=${year}&month=${month}&day=${day}&hour=${hour}${params}`;
-    const starsUrl   = `/api/stars?${base}`;
-    const eclUrl     = `/api/ecliptic?${base}`;
-
-    return Promise.all([fetch(starsUrl).then(r => r.json()), fetch(eclUrl).then(r => r.json())])
+    return Promise.all([getJson(`/api/stars?${query}`), getJson(`/api/ecliptic?${query}`)])
       .then(([data, eclResp]) => {
         eclipticData = eclResp.points;
         renderChart(data);
@@ -1045,7 +1071,8 @@
         if (!silent) updateUrl();
       })
       .catch(err => {
-        if (!silent) { console.error(err); alert('Error fetching sky data. See console for details.'); }
+        if (animating) stopAnimation();
+        alert(`Could not compute the sky: ${err.message}`);
       })
       .finally(() => {
         if (!silent) { btn.disabled = false; btn.textContent = 'VIEW THE SKY'; }
@@ -1246,8 +1273,6 @@
   let animBusy      = false;
   let showNCP       = false;
 
-  const DAYS_IN_MONTH = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
   function setAnimUnit(unit) {
     animUnit = unit;
     document.querySelectorAll('#anim-units .anim-chip, #anim-units-yr .anim-chip').forEach(b =>
@@ -1314,32 +1339,31 @@
     let day   = parseInt(document.getElementById('day').value);
     let hour  = parseFloat(document.getElementById('hour-slider').value);
 
-    if      (animUnit === '1h')    hour  += dir;
-    else if (animUnit === '1d')    day   += dir;
-    else if (animUnit === '1mo')   month += dir;
-    else if (animUnit === '1yr')   year  += dir;
-    else if (animUnit === '10yr')  year  += dir * 10;
-    else if (animUnit === '100yr') year  += dir * 100;
-    else if (animUnit === '1kyr')  year  += dir * 1000;
+    const yearSteps = { '1yr': 1, '10yr': 10, '100yr': 100, '1kyr': 1000 };
+    if      (animUnit === '1h')  hour  += dir;
+    else if (animUnit === '1d')  day   += dir;
+    else if (animUnit === '1mo') month += dir;
+    else                         year  += dir * yearSteps[animUnit];
 
     // hour → day carry
     while (hour >= 24) { hour -= 24; day++;  }
     while (hour <   0) { hour += 24; day--;  }
     hour = Math.round(hour * 2) / 2;  // snap to 0.5 steps
 
-    // day → month carry
-    while (day > DAYS_IN_MONTH[month]) {
-      day -= DAYS_IN_MONTH[month]; month++;
-      if (month > 12) { month = 1; year++; }
-    }
-    while (day < 1) {
-      month--; if (month < 1) { month = 12; year--; }
-      day += DAYS_IN_MONTH[month];
-    }
-
-    // month → year carry
+    // month → year carry; month and year steps keep the day inside the new month
     while (month > 12) { month -= 12; year++; }
     while (month <  1) { month += 12; year--; }
+    if (animUnit !== '1h' && animUnit !== '1d') day = Math.min(day, daysInMonth(year, month));
+
+    // day → month carry
+    while (day > daysInMonth(year, month)) {
+      day -= daysInMonth(year, month);
+      if (++month > 12) { month = 1; year++; }
+    }
+    while (day < 1) {
+      if (--month < 1) { month = 12; year--; }
+      day += daysInMonth(year, month);
+    }
 
     setYear(year);
     document.getElementById('month-select').value    = month;

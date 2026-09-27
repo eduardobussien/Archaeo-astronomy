@@ -60,6 +60,8 @@ pip install -r requirements.txt
 python app.py
 ```
 
+Debug mode (auto-reload and the in-browser debugger) is off by default, because the debugger can run code sent from the browser. To turn it on while developing, set `FLASK_DEBUG=1` first (`set FLASK_DEBUG=1` in Windows cmd, `$env:FLASK_DEBUG=1` in PowerShell, `export FLASK_DEBUG=1` on macOS / Linux).
+
 **5. Open in your browser**
 
 Navigate to `http://127.0.0.1:5000`
@@ -83,6 +85,7 @@ tests/
   test_precession.py    Stars: astropy, pole stars, Orion's Belt, Sirius
   test_solar_system.py  Sun, Moon, planets: JPL DE441 and astropy; Delta T: NASA table
   test_alignment.py     Year labels and calendar conversion
+  test_api.py           Endpoint responses and input validation
 requirements.txt
 ```
 
@@ -138,6 +141,8 @@ python -m pytest
 | `GET /api/sites` | none | List of all monument sites with coordinates and orientation notes |
 
 `year` uses astronomical convention: -2500 = 2501 BC, 0 = 1 BC, 1 = 1 AD. The web interface shows and accepts historical years instead (-2500 = 2500 BC, no year 0) and converts them, so permalinks carry the astronomical value.
+
+`site` must be an exact monument name from `/api/sites` (case does not matter). Invalid input returns HTTP 400 (404 for an unknown site) with a JSON body such as `{"error": "'lat' must be between -90.0 and 90.0"}`. Dates are checked against the real month length, so 29 February is accepted only in leap years.
 
 ---
 
