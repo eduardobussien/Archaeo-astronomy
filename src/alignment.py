@@ -6,6 +6,7 @@ import erfa
 
 from data import STARS, MONUMENTS
 from precession import star_altaz, ecliptic_altaz, local_mean_sidereal_time
+from refraction import apparent_altitude
 from solar_system import body_altaz, sun_altitude
 
 warnings.simplefilter('ignore', category=erfa.ErfaWarning)
@@ -70,12 +71,19 @@ def _jd_to_date(jd):
     return year - 400 * cycles, month, day
 
 
-def calculate_alignments(lat, lon, year, month, day, hour):
+def _observed(altitude, elevation_m, refract):
+    """Geometric altitude as an observer sees it, with refraction if requested."""
+    return apparent_altitude(altitude, elevation_m) if refract else np.asarray(altitude, dtype=float)
+
+
+def calculate_alignments(lat, lon, year, month, day, hour, elevation_m=0.0, refract=True):
     """
     Compute altitude and azimuth for every star, the Sun, Moon and planets.
 
     Stars use the long-term precession engine in precession.py; the Sun, Moon
     and planets come from solar_system.py and share the same Earth rotation.
+    Altitudes include atmospheric refraction for the site's elevation unless
+    refract is False.
 
     Returns a dict with keys:
         jd      - Julian Date (UT1)
@@ -90,15 +98,16 @@ def calculate_alignments(lat, lon, year, month, day, hour):
 
     alt, az = star_altaz(_CATALOG['ra'], _CATALOG['dec'], _CATALOG['pm_ra'],
                          _CATALOG['pm_dec'], _CATALOG['dist'], jd, lat, lon)
+    alt = _observed(alt, elevation_m, refract)
     stars_out = {
         name: {'altitude': float(a), 'azimuth': float(z), 'visible': bool(a > 0)}
         for name, a, z in zip(_STAR_NAMES, alt, az)
     }
 
-    planets = {
-        name: {'altitude': a, 'azimuth': z, 'visible': a > 0}
-        for name, (a, z) in body_altaz(jd, lat, lon).items()
-    }
+    planets = {}
+    for name, (a, z) in body_altaz(jd, lat, lon).items():
+        a = float(_observed(a, elevation_m, refract))
+        planets[name] = {'altitude': a, 'azimuth': z, 'visible': a > 0}
 
     return {
         'jd': jd,
@@ -127,11 +136,15 @@ def _dawn_hours(midnights, lat, lon, arc_vision):
     return np.where(crosses, (lo + hi) / 2.0, np.nan)
 
 
-def find_heliacal_rising(lat, lon, year, star_name, arc_vision=-10.0):
+def find_heliacal_rising(lat, lon, year, star_name, arc_vision=-10.0,
+                         elevation_m=0.0, refract=True):
     """
     Find the first dawn in the target year on which star_name is visible
     (altitude above 0.5 deg while the Sun is at arc_vision) after a dawn on
     which it was not.
+
+    The star's altitude includes refraction unless refract is False; the
+    Sun's is geometric, as arcus visionis is conventionally defined.
 
     The scan starts on 1 October of the previous year so that a star already
     visible on 1 January is not reported as rising that day.
@@ -152,6 +165,7 @@ def find_heliacal_rising(lat, lon, year, star_name, arc_vision=-10.0):
     dawn_jd = midnights + np.where(has_dawn, dawn, 0.0) / 24.0
     star_alt, star_az = star_altaz(s['ra'], s['dec'], s['pm_ra'], s['pm_dec'], s['dist'],
                                    dawn_jd, lat, lon)
+    star_alt = _observed(star_alt, elevation_m, refract)
     visible = has_dawn & (star_alt > 0.5)
 
     rising = np.flatnonzero(visible[1:] & ~visible[:-1]) + 1
@@ -172,16 +186,18 @@ def find_heliacal_rising(lat, lon, year, star_name, arc_vision=-10.0):
     }
 
 
-def calculate_ecliptic(lat, lon, year, month, day, hour):
+def calculate_ecliptic(lat, lon, year, month, day, hour, elevation_m=0.0, refract=True):
     """
     Return 73 points (0°..360° ecliptic longitude, step 5°) projected onto
     the local alt-az frame.  The 73rd point closes the loop back to 0°.
 
-    Uses the mean ecliptic of date from the long-term precession model.
+    Uses the mean ecliptic of date from the long-term precession model, with
+    refraction applied as in calculate_alignments.
     """
     jd = _date_to_jd(year, month, day, hour - lon / 15.0)
     longitudes = np.arange(73) * 5.0
     alt, az = ecliptic_altaz(jd, lat, lon, longitudes)
+    alt = _observed(alt, elevation_m, refract)
     return [
         {'longitude': float(lam), 'altitude': float(a), 'azimuth': float(z)}
         for lam, a, z in zip(longitudes, alt, az)
@@ -280,7 +296,7 @@ if __name__ == "__main__":
             print(f"    {m['note']}\n")
         raise SystemExit(0)
 
-    lat, lon = args.lat, args.lon
+    lat, lon, elevation = args.lat, args.lon, 0.0
     monument_name = None
 
     if args.monument:
@@ -293,9 +309,10 @@ if __name__ == "__main__":
         monument_name = matches_found[0]
         lat = MONUMENTS[monument_name]['lat']
         lon = MONUMENTS[monument_name]['lon']
-        print(f"\n[Using monument: {monument_name}  lat={lat}, lon={lon}]")
+        elevation = MONUMENTS[monument_name]['elevation_m']
+        print(f"\n[Using monument: {monument_name}  lat={lat}, lon={lon}, elevation={elevation} m]")
 
-    results = calculate_alignments(lat, lon, args.year, args.month, args.day, args.hour)
+    results = calculate_alignments(lat, lon, args.year, args.month, args.day, args.hour, elevation)
     results.update({
         '_lat': lat, '_lon': lon,
         '_year': args.year, '_month': args.month,

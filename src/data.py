@@ -403,9 +403,11 @@ STARS = {
 # Monument orientation azimuths are the compass direction (degrees, 0=N clockwise)
 # of the monument's primary astronomical sightline.  These are the directions you
 # would look from the monument to observe the aligned celestial event.
+# elevation_m is the approximate height above sea level; it sets the air pressure
+# used for atmospheric refraction.
 MONUMENTS = {
     'Great Pyramid of Giza': {
-        'lat': 29.9792, 'lon': 31.1342,
+        'lat': 29.9792, 'lon': 31.1342, 'elevation_m': 60,
         'orientation_az': 0.0,
         'note': (
             'Sides aligned to true north within ~0.05°. '
@@ -413,7 +415,7 @@ MONUMENTS = {
         ),
     },
     'Stonehenge': {
-        'lat': 51.1789, 'lon': -1.8262,
+        'lat': 51.1789, 'lon': -1.8262, 'elevation_m': 100,
         'orientation_az': 51.2,
         'note': (
             'Heel stone marks midsummer sunrise (~51.2° in present era). '
@@ -421,7 +423,7 @@ MONUMENTS = {
         ),
     },
     'Angkor Wat': {
-        'lat': 13.4125, 'lon': 103.8670,
+        'lat': 13.4125, 'lon': 103.8670, 'elevation_m': 20,
         'orientation_az': 90.0,
         'note': (
             'Main east-west axis unique for a Hindu temple (west-facing). '
@@ -429,7 +431,7 @@ MONUMENTS = {
         ),
     },
     'Pyramid of the Sun (Teotihuacan)': {
-        'lat': 19.6925, 'lon': -98.8438,
+        'lat': 19.6925, 'lon': -98.8438, 'elevation_m': 2300,
         'orientation_az': 285.5,
         'note': (
             'West face oriented toward the Pleiades setting point (~285.5°). '
@@ -437,7 +439,7 @@ MONUMENTS = {
         ),
     },
     'El Castillo (Chichen Itza)': {
-        'lat': 20.6829, 'lon': -88.5686,
+        'lat': 20.6829, 'lon': -88.5686, 'elevation_m': 30,
         'orientation_az': 25.7,
         'note': (
             'NNE staircase axis aligns with Venus at maximum northern elongation. '
@@ -445,7 +447,7 @@ MONUMENTS = {
         ),
     },
     'Göbekli Tepe': {
-        'lat': 37.2232, 'lon': 38.9225,
+        'lat': 37.2232, 'lon': 38.9225, 'elevation_m': 760,
         'orientation_az': 165.0,
         'note': (
             'Oldest known monumental complex (~9600 BC), predating agriculture. '
@@ -453,7 +455,7 @@ MONUMENTS = {
         ),
     },
     'Newgrange': {
-        'lat': 53.6947, 'lon': -6.4753,
+        'lat': 53.6947, 'lon': -6.4753, 'elevation_m': 60,
         'orientation_az': 136.4,
         'note': (
             'Neolithic passage tomb (~3200 BC). The roof-box admits a narrow beam of '
@@ -461,7 +463,7 @@ MONUMENTS = {
         ),
     },
     'Avebury': {
-        'lat': 51.4292, 'lon': -1.8536,
+        'lat': 51.4292, 'lon': -1.8536, 'elevation_m': 160,
         'orientation_az': 50.0,
         'note': (
             'Largest megalithic stone circle in the world (~2600 BC). '
@@ -469,7 +471,7 @@ MONUMENTS = {
         ),
     },
     'Carnac Stones': {
-        'lat': 47.5989, 'lon': -2.9539,
+        'lat': 47.5989, 'lon': -2.9539, 'elevation_m': 20,
         'orientation_az': 83.0,
         'note': (
             'Over 3,000 menhirs arranged in parallel rows (~4500-3300 BC). '
@@ -477,7 +479,7 @@ MONUMENTS = {
         ),
     },
     'Mnajdra Temple (Malta)': {
-        'lat': 35.8269, 'lon': 14.4367,
+        'lat': 35.8269, 'lon': 14.4367, 'elevation_m': 60,
         'orientation_az': 94.0,
         'note': (
             'Neolithic temple (~3600 BC), among the oldest free-standing structures on Earth. '
@@ -485,7 +487,7 @@ MONUMENTS = {
         ),
     },
     'Machu Picchu': {
-        'lat': -13.1631, 'lon': -72.5449,
+        'lat': -13.1631, 'lon': -72.5449, 'elevation_m': 2430,
         'orientation_az': 65.0,
         'note': (
             'Inca citadel (~1450 AD). The Torreon (Temple of the Sun) aligns with the '
@@ -493,7 +495,7 @@ MONUMENTS = {
         ),
     },
     'Tiwanaku (Kalasasaya)': {
-        'lat': -16.5544, 'lon': -68.6742,
+        'lat': -16.5544, 'lon': -68.6742, 'elevation_m': 3850,
         'orientation_az': 89.0,
         'note': (
             'Pre-Inca ceremonial center (~500-900 AD, possibly older). '
@@ -501,7 +503,7 @@ MONUMENTS = {
         ),
     },
     'Baalbek (Temple of Jupiter)': {
-        'lat': 34.2036, 'lon': 36.2100,
+        'lat': 34.2036, 'lon': 36.2100, 'elevation_m': 1150,
         'orientation_az': 62.0,
         'note': (
             'Massive Roman temple complex built on a far older Phoenician foundation. '

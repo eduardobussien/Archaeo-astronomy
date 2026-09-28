@@ -51,16 +51,29 @@ def _number(name, default, cast, low, high):
     return value
 
 
+def _flag(name, default):
+    raw = request.args.get(name)
+    if raw is None:
+        return default
+    if raw.lower() in ('1', 'true'):
+        return True
+    if raw.lower() in ('0', 'false'):
+        return False
+    raise ApiError(f"'{name}' must be 0 or 1")
+
+
 def _location():
-    """(lat, lon, monument name or None) from ?site= or ?lat=&lon=."""
+    """(lat, lon, elevation in metres, monument name or None) from ?site= or ?lat=&lon=&elevation=."""
     site = request.args.get('site')
     if site:
         name = _SITE_NAMES.get(site.strip().lower())
         if name is None:
             raise ApiError("Unknown site; see /api/sites for the list", 404)
-        return MONUMENTS[name]['lat'], MONUMENTS[name]['lon'], name
+        m = MONUMENTS[name]
+        return m['lat'], m['lon'], m['elevation_m'], name
     return (_number('lat', 29.9792, float, -90.0, 90.0),
             _number('lon', 31.1342, float, -180.0, 180.0),
+            _number('elevation', 0.0, float, -500.0, 9000.0),
             None)
 
 
@@ -84,19 +97,22 @@ def stars():
     Return star, Sun, Moon and planet positions for a location and historical date.
 
     Query parameters:
-        site  - monument name from /api/sites (overrides lat/lon)
-        lat   - latitude in degrees, -90 to 90 (default: Giza)
-        lon   - longitude in degrees, -180 to 180 (default: Giza)
-        year  - astronomical year: 0 = 1 BC, -2499 = 2500 BC (default: -2499)
-        month - 1-12 (default: 3)
-        day   - 1 to the length of the month (default: 20)
-        hour  - local mean solar time, 0-24 (default: 22.0)
+        site       - monument name from /api/sites (overrides lat/lon/elevation)
+        lat        - latitude in degrees, -90 to 90 (default: Giza)
+        lon        - longitude in degrees, -180 to 180 (default: Giza)
+        elevation  - metres above sea level, -500 to 9000 (default: 0)
+        year       - astronomical year: 0 = 1 BC, -2499 = 2500 BC (default: -2499)
+        month      - 1-12 (default: 3)
+        day        - 1 to the length of the month (default: 20)
+        hour       - local mean solar time, 0-24 (default: 22.0)
+        refraction - 1 for apparent altitudes (default), 0 for geometric
 
     Invalid parameters return HTTP 400 (404 for an unknown site) with {"error": message}.
     """
-    lat, lon, site = _location()
+    lat, lon, elevation, site = _location()
     year, month, day, hour = _date_time()
-    results = calculate_alignments(lat, lon, year, month, day, hour)
+    refract = _flag('refraction', True)
+    results = calculate_alignments(lat, lon, year, month, day, hour, elevation, refract)
 
     monument_info = None
     if site:
@@ -108,8 +124,10 @@ def stars():
 
     return jsonify({
         'meta': {
-            'lat':     lat,
-            'lon':     lon,
+            'lat':         lat,
+            'lon':         lon,
+            'elevation_m': elevation,
+            'refraction':  refract,
             'year':    year,
             'era':     'BC' if year <= 0 else 'AD',
             'month':   month,
@@ -147,18 +165,19 @@ def heliacal():
     """
     Find the heliacal rising of a star in a given year and location.
 
-    Query parameters: site or lat/lon (as /api/stars), year (astronomical),
-    star (catalog name, default Sirius), arc_vision (Sun altitude at the
-    moment of observation, -20 to 0 degrees, default -10).
+    Query parameters: site or lat/lon/elevation and refraction (as /api/stars),
+    year (astronomical), star (catalog name, default Sirius), arc_vision (Sun
+    altitude at the moment of observation, -20 to 0 degrees, default -10).
     """
-    lat, lon, _ = _location()
+    lat, lon, elevation, _ = _location()
     year = _number('year', -2780, int, *YEAR_RANGE)
     arc_vision = _number('arc_vision', -10.0, float, -20.0, 0.0)
+    refract = _flag('refraction', True)
     star = request.args.get('star', 'Sirius')
     if star not in STARS:
         raise ApiError("Unknown star; it must be one of the catalog names")
 
-    result = find_heliacal_rising(lat, lon, year, star, arc_vision)
+    result = find_heliacal_rising(lat, lon, year, star, arc_vision, elevation, refract)
     if result is None:
         return jsonify({
             'found': False,
@@ -175,9 +194,10 @@ def ecliptic():
 
     Accepts the same query parameters as /api/stars.
     """
-    lat, lon, _ = _location()
+    lat, lon, elevation, _ = _location()
     year, month, day, hour = _date_time()
-    return jsonify({'points': calculate_ecliptic(lat, lon, year, month, day, hour)})
+    refract = _flag('refraction', True)
+    return jsonify({'points': calculate_ecliptic(lat, lon, year, month, day, hour, elevation, refract)})
 
 
 @app.route('/api/sites')
@@ -187,6 +207,7 @@ def sites():
         name: {
             'lat':            data['lat'],
             'lon':            data['lon'],
+            'elevation_m':    data['elevation_m'],
             'orientation_az': data['orientation_az'],
             'note':           data['note'],
         }

@@ -77,6 +77,7 @@ src/
   precession.py     Long-term precession, Earth rotation and proper motion engine
   solar_system.py   Sun, Moon and planets from ERFA's analytic theories
   timescales.py     Delta T (difference between uniform time and Earth rotation time)
+  refraction.py     Atmospheric refraction, scaled by the site's elevation
   data.py           Star catalog (60 stars, J2000 positions + proper motion) and monument list
   visualize.py      Static chart export helpers
 templates/
@@ -86,6 +87,7 @@ tests/
   test_solar_system.py  Sun, Moon, planets: JPL DE441 and astropy; Delta T: NASA table
   test_alignment.py     Year labels and calendar conversion
   test_api.py           Endpoint responses and input validation
+  test_refraction.py    Refraction: horizon value, ERFA model, standard atmosphere
 requirements.txt
 ```
 
@@ -99,7 +101,11 @@ Star positions use a single model at every epoch (`src/precession.py`):
 - **Earth rotation:** hour angles come from the Earth Rotation Angle, which is linear in UT1, measured from the Celestial Intermediate Origin. The CIO locator `s` is integrated numerically from the long-term pole, because the IAU 2006 series for `s` diverges beyond a few millennia.
 - **Proper motion:** rigorous 3D space motion (`erfa.pmsafe`) from the J2000 catalog.
 
-Positions are geometric mean places: nutation, aberration and refraction (all under half a degree) are not applied.
+The engine computes geometric mean places: nutation and aberration (each under 21 arcseconds) are not applied.
+
+### Atmospheric refraction
+
+The air bends light, so everything near the horizon appears higher than it geometrically is: about 34 arcminutes at the horizon, falling to zero overhead. That shifts when and where objects appear to rise, which is exactly what alignment claims depend on. Displayed altitudes use the Saemundsson (1986) formula, which agrees with ERFA's refraction model to within 0.15 arcminutes above 10 degrees. Refraction scales with air pressure, which is taken from each site's elevation using the standard atmosphere: at Tiwanaku (3,850 m) it is 38% weaker than at sea level. Temperature and weather also change refraction near the horizon by a few arcminutes; standard conditions (10 C) are assumed. The API returns geometric altitudes with `refraction=0`.
 
 The model is checked in `tests/` against astropy near J2000 (under 1 arcmin), against known pole stars (Thuban around 2830 BC, Vega around 12,000 BC), against the lowest culmination of Orion's Belt near 10,500 BC, and against the Sothic heliacal rising of Sirius in 2781 BC.
 
@@ -142,7 +148,7 @@ python -m pytest
 
 `year` uses astronomical convention: -2500 = 2501 BC, 0 = 1 BC, 1 = 1 AD. The web interface shows and accepts historical years instead (-2500 = 2500 BC, no year 0) and converts them, so permalinks carry the astronomical value.
 
-`site` must be an exact monument name from `/api/sites` (case does not matter). Invalid input returns HTTP 400 (404 for an unknown site) with a JSON body such as `{"error": "'lat' must be between -90.0 and 90.0"}`. Dates are checked against the real month length, so 29 February is accepted only in leap years.
+`site` must be an exact monument name from `/api/sites` (case does not matter). Invalid input returns HTTP 400 (404 for an unknown site) with a JSON body such as `{"error": "'lat' must be between -90.0 and 90.0"}`. Dates are checked against the real month length, so 29 February is accepted only in leap years. With custom coordinates, `elevation` (metres, default 0) sets the air pressure for refraction; `refraction=0` returns geometric altitudes on `/api/stars`, `/api/ecliptic` and `/api/heliacal`.
 
 ---
 

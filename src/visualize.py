@@ -232,7 +232,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    lat, lon = args.lat, args.lon
+    lat, lon, elevation = args.lat, args.lon, 0.0
     monument_name = None
 
     if args.monument:
@@ -244,9 +244,10 @@ if __name__ == "__main__":
         monument_name = found[0]
         lat = MONUMENTS[monument_name]['lat']
         lon = MONUMENTS[monument_name]['lon']
-        print(f"Monument: {monument_name}  ({lat}, {lon})")
+        elevation = MONUMENTS[monument_name]['elevation_m']
+        print(f"Monument: {monument_name}  ({lat}, {lon}, {elevation} m)")
 
-    results = calculate_alignments(lat, lon, args.year, args.month, args.day, args.hour)
+    results = calculate_alignments(lat, lon, args.year, args.month, args.day, args.hour, elevation)
     results.update({
         '_lat': lat,   '_lon': lon,
         '_year': args.year, '_month': args.month,

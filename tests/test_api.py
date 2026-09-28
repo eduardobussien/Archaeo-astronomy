@@ -68,6 +68,33 @@ def test_heliacal_rejects_invalid_parameters(params):
     assert r.get_json()['error']
 
 
+def test_refraction_lifts_objects_near_the_horizon():
+    params = {'site': 'Great Pyramid of Giza', 'year': '-2499', 'month': '3', 'day': '20', 'hour': '22'}
+    apparent = _get('/api/stars', **params).get_json()
+    geometric = _get('/api/stars', refraction='0', **params).get_json()
+    assert apparent['meta']['refraction'] and not geometric['meta']['refraction']
+    for name, star in apparent['stars'].items():
+        lift = star['altitude'] - geometric['stars'][name]['altitude']
+        assert 0.0 <= lift <= 0.66
+        assert star['azimuth'] == geometric['stars'][name]['azimuth']
+
+
+def test_high_sites_refract_less():
+    params = {'year': '-2499', 'month': '3', 'day': '20', 'hour': '22', 'lat': '-16.5544', 'lon': '-68.6742'}
+    sea = _get('/api/stars', elevation='0', **params).get_json()
+    high = _get('/api/stars', elevation='3850', **params).get_json()
+    flat = _get('/api/stars', refraction='0', **params).get_json()
+    name = min(flat['stars'], key=lambda n: abs(flat['stars'][n]['altitude'] - 5))
+    lift_sea = sea['stars'][name]['altitude'] - flat['stars'][name]['altitude']
+    lift_high = high['stars'][name]['altitude'] - flat['stars'][name]['altitude']
+    assert abs(lift_high / lift_sea - 0.620) < 0.005
+
+
+@pytest.mark.parametrize('params', [{'refraction': 'yes'}, {'elevation': '10000'}])
+def test_refraction_parameters_are_validated(params):
+    assert _get('/api/stars', **params).status_code == 400
+
+
 def test_heliacal_finds_sirius():
     body = _get('/api/heliacal', site='Great Pyramid of Giza', year='-2780', star='Sirius').get_json()
     assert body['found'] and body['month'] == 6
