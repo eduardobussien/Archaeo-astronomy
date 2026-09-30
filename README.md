@@ -78,6 +78,7 @@ src/
   solar_system.py   Sun, Moon and planets from ERFA's analytic theories
   timescales.py     Delta T (difference between uniform time and Earth rotation time)
   refraction.py     Atmospheric refraction, scaled by the site's elevation
+  visibility.py     How dark the sky must be, and how high a star, for it to be seen at dawn
   data.py           Star catalog (60 stars, J2000 positions + proper motion) and monument list
   visualize.py      Static chart export helpers
 templates/
@@ -88,6 +89,7 @@ tests/
   test_alignment.py     Year labels and calendar conversion
   test_api.py           Endpoint responses and input validation
   test_refraction.py    Refraction: horizon value, ERFA model, standard atmosphere
+  test_visibility.py    Heliacal visibility: Schaefer and IMCCE criteria for Sirius
 requirements.txt
 ```
 
@@ -124,7 +126,11 @@ Positions come from ERFA's analytic theories (`epv00` for the Earth, `plan94` fo
 
 Delta T itself is uncertain for prehistoric dates: published long-term models differ by about two hours at 10,500 BC, enough to move the Moon by about a degree. The Sun and planets move slowly enough that this barely matters for them.
 
-**Heliacal rising** is found by checking every dawn from the previous October to the end of the target year at once: a vectorized bisection finds when the Sun reaches the arc-vision threshold (default -10 degrees) each morning, and the first dawn in the target year on which the star is visible after a dawn on which it was not is reported.
+### Heliacal rising
+
+A star's heliacal rising is the first morning it can be glimpsed in the dawn twilight after weeks hidden in the Sun's glare. How dark the sky must be depends on the star's brightness, and how high the star must climb depends on how much the air dims it near the horizon (extinction, in magnitudes per airmass). `src/visibility.py` uses Reijs's fits to Schaefer's visibility model ([archaeocosmology.org](http://www.archaeocosmology.org/eng/extinction.htm)): for Sirius in typical air (0.27, Schaefer's estimate for ancient Memphis) the Sun must be 6 degrees down and the star 4 degrees up, matching Schaefer (2000) and [IMCCE](https://promenade.imcce.fr/en/pages6/724.html); a magnitude 2 star needs the Sun 12 degrees down. The web interface offers clear, typical and hazy air.
+
+Every dawn from the previous October to the end of the target year is checked at once: a vectorized bisection finds when the Sun reaches the star's darkness limit each morning, and the first dawn in the target year on which the star is high enough, after one on which it was not, is reported. Stars that are seen every dawn (like Thuban, the pole star around 2800 BC) or never (Canopus from Giza in hazy air) are reported as such. The model's quoted uncertainty (about 1.5 to 2 degrees in each threshold) corresponds to a few days in the date.
 
 To run the tests:
 
@@ -143,7 +149,7 @@ python -m pytest
 |---|---|---|
 | `GET /api/stars` | `lat, lon, year, month, day, hour, site` | Star + planet alt-az positions |
 | `GET /api/ecliptic` | same as `/api/stars` | 73 ecliptic great-circle points in alt-az |
-| `GET /api/heliacal` | `lat, lon, year, star, arc_vision, site` | First heliacal rising date for a star |
+| `GET /api/heliacal` | `lat, lon, year, star, extinction, site` | First heliacal rising date for a star |
 | `GET /api/sites` | none | List of all monument sites with coordinates and orientation notes |
 
 `year` uses astronomical convention: -2500 = 2501 BC, 0 = 1 BC, 1 = 1 AD. The web interface shows and accepts historical years instead (-2500 = 2500 BC, no year 0) and converts them, so permalinks carry the astronomical value.

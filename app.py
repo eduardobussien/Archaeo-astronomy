@@ -9,6 +9,7 @@ from alignment import (calculate_alignments, calculate_ecliptic, days_in_month,
                        find_heliacal_rising, format_year)
 from data import MONUMENTS, STARS
 from precession import EPOCH_RANGE
+from visibility import DEFAULT_EXTINCTION
 
 app = Flask(__name__)
 
@@ -166,25 +167,29 @@ def heliacal():
     Find the heliacal rising of a star in a given year and location.
 
     Query parameters: site or lat/lon/elevation and refraction (as /api/stars),
-    year (astronomical), star (catalog name, default Sirius), arc_vision (Sun
-    altitude at the moment of observation, -20 to 0 degrees, default -10).
+    year (astronomical), star (catalog name, default Sirius), extinction
+    (atmospheric extinction in magnitudes per airmass, 0.1 to 0.6, default
+    0.27; higher means hazier air, so the star must climb higher to be seen).
     """
     lat, lon, elevation, _ = _location()
     year = _number('year', -2780, int, *YEAR_RANGE)
-    arc_vision = _number('arc_vision', -10.0, float, -20.0, 0.0)
+    extinction = _number('extinction', DEFAULT_EXTINCTION, float, 0.1, 0.6)
     refract = _flag('refraction', True)
     star = request.args.get('star', 'Sirius')
     if star not in STARS:
         raise ApiError("Unknown star; it must be one of the catalog names")
 
-    result = find_heliacal_rising(lat, lon, year, star, arc_vision, elevation, refract)
-    if result is None:
-        return jsonify({
-            'found': False,
-            'message': f"No heliacal rising of {star} found at this location in {format_year(year)}.",
-        })
+    result = find_heliacal_rising(lat, lon, year, star, extinction, elevation, refract)
+    if not result['found']:
+        when = format_year(year)
+        result['message'] = {
+            'always_visible': f"{star} is visible at every dawn here in {when}: it never sinks "
+                              "out of sight, so it has no heliacal rising.",
+            'never_visible': f"{star} never climbs high enough in a dark enough sky to be seen "
+                             f"at dawn here in {when}.",
+        }.get(result['reason'], f"No heliacal rising of {star} found here in {when}.")
 
-    return jsonify({'found': True, **result})
+    return jsonify(result)
 
 
 @app.route('/api/ecliptic')

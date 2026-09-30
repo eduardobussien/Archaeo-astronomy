@@ -8,6 +8,7 @@ from data import STARS, MONUMENTS
 from precession import star_altaz, ecliptic_altaz, local_mean_sidereal_time
 from refraction import apparent_altitude
 from solar_system import body_altaz, sun_altitude
+from visibility import DEFAULT_EXTINCTION, visibility_thresholds
 
 warnings.simplefilter('ignore', category=erfa.ErfaWarning)
 
@@ -118,64 +119,75 @@ def calculate_alignments(lat, lon, year, month, day, hour, elevation_m=0.0, refr
     }
 
 
-def _dawn_hours(midnights, lat, lon, arc_vision):
+def _dawn_hours(midnights, lat, lon, sun_limit):
     """
-    Local hour (0-14) at which the Sun rises through arc_vision on each day,
+    Local hour (0-14) at which the Sun rises through sun_limit on each day,
     by bisection over all days at once. NaN where it never crosses (polar
     day or night).
     """
     lo = np.zeros_like(midnights)
     hi = np.full_like(midnights, 14.0)
-    crosses = ((sun_altitude(midnights, lat, lon) < arc_vision)
-               & (sun_altitude(midnights + hi / 24.0, lat, lon) > arc_vision))
+    crosses = ((sun_altitude(midnights, lat, lon) < sun_limit)
+               & (sun_altitude(midnights + hi / 24.0, lat, lon) > sun_limit))
     for _ in range(20):
         mid = (lo + hi) / 2.0
-        below = sun_altitude(midnights + mid / 24.0, lat, lon) < arc_vision
+        below = sun_altitude(midnights + mid / 24.0, lat, lon) < sun_limit
         lo = np.where(below, mid, lo)
         hi = np.where(below, hi, mid)
     return np.where(crosses, (lo + hi) / 2.0, np.nan)
 
 
-def find_heliacal_rising(lat, lon, year, star_name, arc_vision=-10.0,
+def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTION,
                          elevation_m=0.0, refract=True):
     """
-    Find the first dawn in the target year on which star_name is visible
-    (altitude above 0.5 deg while the Sun is at arc_vision) after a dawn on
-    which it was not.
+    Find the first dawn in the target year on which star_name can be seen,
+    after a dawn on which it could not.
 
-    The star's altitude includes refraction unless refract is False; the
-    Sun's is geometric, as arcus visionis is conventionally defined.
+    A dawn counts when, at the last moment the sky is dark enough for a star
+    of this magnitude (the Sun at its limit from visibility.py), the star
+    already stands at the altitude it needs to shine through the extinction
+    k (magnitudes per airmass). The star's altitude includes refraction
+    unless refract is False; the Sun's is geometric.
 
     The scan starts on 1 October of the previous year so that a star already
     visible on 1 January is not reported as rising that day.
 
-    Returns a dict with the date and geometry, or None if not found.
+    Returns {'found': True, date and geometry...}, or {'found': False,
+    'reason': ...} where reason is 'always_visible' (seen every dawn, as for a
+    star that never sets), 'never_visible' (never high enough in a dark
+    enough sky) or 'not_this_year'.
     """
-    if star_name not in STARS:
-        return None
-
     s = STARS[star_name]
+    star_limit, sun_limit = (float(v) for v in visibility_thresholds(s['mag'], extinction))
     first_midnight = _date_to_jd(year - 1, 10, 1, -lon / 15.0)
     n_days = round(_date_to_jd(year + 1, 1, 1, -lon / 15.0) - first_midnight)
     first_target_day = round(_date_to_jd(year, 1, 1, -lon / 15.0) - first_midnight)
     midnights = first_midnight + np.arange(n_days)
 
-    dawn = _dawn_hours(midnights, lat, lon, arc_vision)
+    dawn = _dawn_hours(midnights, lat, lon, sun_limit)
     has_dawn = ~np.isnan(dawn)
     dawn_jd = midnights + np.where(has_dawn, dawn, 0.0) / 24.0
     star_alt, star_az = star_altaz(s['ra'], s['dec'], s['pm_ra'], s['pm_dec'], s['dist'],
                                    dawn_jd, lat, lon)
     star_alt = _observed(star_alt, elevation_m, refract)
-    visible = has_dawn & (star_alt > 0.5)
+    visible = has_dawn & (star_alt >= star_limit)
 
     rising = np.flatnonzero(visible[1:] & ~visible[:-1]) + 1
     rising = rising[rising >= first_target_day]
     if rising.size == 0:
-        return None
+        dark_dawns = visible[first_target_day:][has_dawn[first_target_day:]]
+        if dark_dawns.size and dark_dawns.all():
+            reason = 'always_visible'
+        elif not dark_dawns.any():
+            reason = 'never_visible'
+        else:
+            reason = 'not_this_year'
+        return {'found': False, 'reason': reason}
 
     k = rising[0]
     y, m, d = _jd_to_date(midnights[k] + 0.5)
     return {
+        'found': True,
         'year':  y,
         'month': m,
         'day':   d,
@@ -183,6 +195,8 @@ def find_heliacal_rising(lat, lon, year, star_name, arc_vision=-10.0,
         'star_azimuth':    round(float(star_az[k]), 2),
         'sun_altitude':    round(float(sun_altitude(dawn_jd[k], lat, lon)), 2),
         'dawn_hour_local': round(float(dawn[k]), 2),
+        'required_star_altitude': round(star_limit, 2),
+        'extinction':      extinction,
     }
 
 

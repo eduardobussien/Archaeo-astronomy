@@ -59,7 +59,8 @@ def test_february_29_accepted_in_leap_years(year):
 
 @pytest.mark.parametrize('params', [
     {'star': 'Nibiru'},
-    {'arc_vision': '5'},
+    {'extinction': '5'},
+    {'extinction': 'clear'},
     {'year': '-30000'},
 ])
 def test_heliacal_rejects_invalid_parameters(params):

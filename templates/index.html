@@ -549,6 +549,14 @@
     <label style="display:block; margin-top:10px">Search Year (negative = BC)</label>
     <input type="number" id="hr-year" value="-2781" style="width:100%; margin-top:4px" />
 
+    <label style="display:block; margin-top:10px"
+      title="Haze dims starlight near the horizon, so a star must climb higher and the sky must be darker before it is seen">Sky clarity</label>
+    <select id="hr-extinction" style="width:100%; margin-top:4px">
+      <option value="0.20">Very clear (desert, high site)</option>
+      <option value="0.27" selected>Typical (ancient Memphis)</option>
+      <option value="0.35">Hazy or humid (coast)</option>
+    </select>
+
     <button id="hr-btn" onclick="findHeliacalRising()">FIND HELIACAL RISING</button>
 
     <div id="hr-result"></div>
@@ -931,7 +939,8 @@
     btn.disabled = true;
     btn.textContent = 'SEARCHING…';
 
-    const query = new URLSearchParams({ star, year, ...locationParams() });
+    const extinction = document.getElementById('hr-extinction').value;
+    const query = new URLSearchParams({ star, year, extinction, ...locationParams() });
     try {
       displayHeliacalResult(await getJson(`/api/heliacal?${query}`), star);
     } catch (e) {
@@ -957,8 +966,8 @@
         <div class="hr-card-star">${star}</div>
         <div class="hr-card-date">${dateStr} at ${formatHour(data.dawn_hour_local)} local</div>
         <div class="hr-card-stats">
-          <span>Star alt: <strong>${data.star_altitude}°</strong></span>
-          <span>Sun alt: <strong>${data.sun_altitude}°</strong></span>
+          <span title="Altitude the star must reach to be seen">Star alt: <strong>${data.star_altitude}°</strong> (needs ${data.required_star_altitude}°)</span>
+          <span title="The sky is dark enough while the Sun is this low">Sun alt: <strong>${data.sun_altitude}°</strong></span>
         </div>
         ${note ? `<div class="hr-card-note">${note}</div>` : ''}
         <button class="hr-jump"
