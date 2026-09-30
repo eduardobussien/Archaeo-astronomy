@@ -74,19 +74,13 @@ def gcrs_to_altaz(vectors, jd_ut1, lat, lon):
     return np.degrees(el), np.degrees(az)
 
 
-def star_altaz(ra, dec, pm_ra_cosdec, pm_dec, distance, jd_ut1, lat, lon):
+def space_motion(ra, dec, pm_ra_cosdec, pm_dec, distance, radial_velocity, jd):
     """
-    Altitude and azimuth (degrees) of catalog stars at a UT1 Julian Date.
+    ICRS (ra, dec) in radians at Julian Date jd, moving each star in a
+    straight line through space from its J2000 position.
 
-    ra, dec        ICRS J2000 position, degrees
-    pm_ra_cosdec   proper motion in RA including the cos(dec) factor, mas/yr
-    pm_dec         proper motion in declination, mas/yr
-    distance       parsecs
-
-    Star parameters and jd_ut1 broadcast against each other, so a column of
-    dates against a row of stars yields a (dates, stars) grid. Space motion is
-    propagated rigorously in 3D with
-    zero radial velocity, matching astropy's SkyCoord.apply_space_motion.
+    Units as for star_altaz. The radial velocity matters for nearby fast
+    stars: approaching stars appear to speed up across the sky.
     """
     ra, dec = np.radians(ra), np.radians(dec)
     pmr = np.asarray(pm_ra_cosdec) * _MAS_TO_RAD / np.cos(dec)
@@ -94,8 +88,26 @@ def star_altaz(ra, dec, pm_ra_cosdec, pm_dec, distance, jd_ut1, lat, lon):
     parallax = 1.0 / np.asarray(distance)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', erfa.ErfaWarning)
-        ra_t, dec_t, *_ = erfa.pmsafe(ra, dec, pmr, pmd, parallax, 0.0,
-                                      J2000_JD, 0.0, jd_ut1, 0.0)
+        ra_t, dec_t, *_ = erfa.pmsafe(ra, dec, pmr, pmd, parallax, radial_velocity,
+                                      J2000_JD, 0.0, jd, 0.0)
+    return ra_t, dec_t
+
+
+def star_altaz(ra, dec, pm_ra_cosdec, pm_dec, distance, jd_ut1, lat, lon, radial_velocity=0.0):
+    """
+    Altitude and azimuth (degrees) of catalog stars at a UT1 Julian Date.
+
+    ra, dec          ICRS J2000 position, degrees
+    pm_ra_cosdec     proper motion in RA including the cos(dec) factor, mas/yr
+    pm_dec           proper motion in declination, mas/yr
+    distance         parsecs
+    radial_velocity  km/s, positive if receding
+
+    Star parameters and jd_ut1 broadcast against each other, so a column of
+    dates against a row of stars yields a (dates, stars) grid. Space motion is
+    propagated rigorously in 3D, matching astropy's SkyCoord.apply_space_motion.
+    """
+    ra_t, dec_t = space_motion(ra, dec, pm_ra_cosdec, pm_dec, distance, radial_velocity, jd_ut1)
     return gcrs_to_altaz(erfa.s2c(ra_t, dec_t), jd_ut1, lat, lon)
 
 

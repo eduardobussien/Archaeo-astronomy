@@ -7,11 +7,12 @@ from astropy.time import Time
 
 from alignment import _date_to_jd, find_heliacal_rising
 from data import STARS
-from precession import cio_locator, ecliptic_altaz, star_altaz
+from precession import J2000_JD, cio_locator, ecliptic_altaz, space_motion, star_altaz
 
 GIZA_LAT, GIZA_LON = 29.9792, 31.1342
 ARCMIN = 1.0 / 60.0
 MAS = np.pi / 648_000_000.0
+KM_S_TO_PC_PER_YEAR = 1.0227121650537077e-6
 
 
 def _separation_deg(alt1, az1, alt2, az2):
@@ -24,7 +25,13 @@ def _separation_deg(alt1, az1, alt2, az2):
 def _star(name, jd):
     s = STARS[name]
     return star_altaz(s['ra'], s['dec'], s['pm_ra'], s['pm_dec'], s['dist'],
-                      jd, GIZA_LAT, GIZA_LON)
+                      jd, GIZA_LAT, GIZA_LON, s['rv'])
+
+
+def _moved(name, jd, rv):
+    s = STARS[name]
+    ra, dec = space_motion(s['ra'], s['dec'], s['pm_ra'], s['pm_dec'], s['dist'], rv, jd)
+    return np.degrees(erfa.seps(np.radians(s['ra']), np.radians(s['dec']), ra, dec))
 
 
 def _pole_separation_deg(name, year):
@@ -98,6 +105,30 @@ def test_sirius_heliacal_rising_matches_sothic_anchor():
     assert abs(result['day'] - 26) <= 2
     # Sirius at dec -21.5 deg rises near azimuth 115 deg at Giza's latitude.
     assert 110.0 < result['star_azimuth'] < 122.0
+
+
+@pytest.mark.parametrize('name', sorted(STARS))
+def test_space_motion_is_a_straight_line_through_space(name):
+    s = STARS[name]
+    jd = _date_to_jd(-10499, 3, 20, 0.0)
+    ra, dec = np.radians(s['ra']), np.radians(s['dec'])
+    toward = erfa.s2c(ra, dec)
+    east = np.array([-np.sin(ra), np.cos(ra), 0.0])
+    north = np.array([-np.sin(dec) * np.cos(ra), -np.sin(dec) * np.sin(ra), np.cos(dec)])
+    velocity = ((s['pm_ra'] * east + s['pm_dec'] * north) * MAS * s['dist']
+                + s['rv'] * KM_S_TO_PC_PER_YEAR * toward)
+    expected = erfa.c2s(s['dist'] * toward + velocity * (jd - J2000_JD) / 365.25)
+
+    ours = space_motion(s['ra'], s['dec'], s['pm_ra'], s['pm_dec'], s['dist'], s['rv'], jd)
+    assert np.degrees(erfa.seps(*ours, *expected)) * 3600 < 1.0
+
+
+def test_radial_velocity_changes_apparent_speed_across_the_sky():
+    # Approaching stars were farther away in the past, so they crossed the sky more slowly.
+    jd = _date_to_jd(-10499, 3, 20, 0.0)
+    assert STARS['Alpha Centauri']['rv'] < 0 < STARS['Aldebaran']['rv']
+    assert _moved('Alpha Centauri', jd, STARS['Alpha Centauri']['rv']) < _moved('Alpha Centauri', jd, 0.0) - 2.0
+    assert _moved('Aldebaran', jd, STARS['Aldebaran']['rv']) > _moved('Aldebaran', jd, 0.0)
 
 
 def test_rejects_epochs_outside_model_range():

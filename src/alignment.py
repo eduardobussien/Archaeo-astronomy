@@ -15,7 +15,7 @@ warnings.simplefilter('ignore', category=erfa.ErfaWarning)
 _STAR_NAMES = list(STARS)
 _CATALOG = {
     key: np.array([STARS[name][key] for name in _STAR_NAMES])
-    for key in ('ra', 'dec', 'pm_ra', 'pm_dec', 'dist')
+    for key in ('ra', 'dec', 'pm_ra', 'pm_dec', 'dist', 'rv')
 }
 
 
@@ -98,7 +98,7 @@ def calculate_alignments(lat, lon, year, month, day, hour, elevation_m=0.0, refr
     jd = _date_to_jd(year, month, day, hour_ut)
 
     alt, az = star_altaz(_CATALOG['ra'], _CATALOG['dec'], _CATALOG['pm_ra'],
-                         _CATALOG['pm_dec'], _CATALOG['dist'], jd, lat, lon)
+                         _CATALOG['pm_dec'], _CATALOG['dist'], jd, lat, lon, _CATALOG['rv'])
     alt = _observed(alt, elevation_m, refract)
     stars_out = {
         name: {'altitude': float(a), 'azimuth': float(z), 'visible': bool(a > 0)}
@@ -168,7 +168,7 @@ def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTIO
     has_dawn = ~np.isnan(dawn)
     dawn_jd = midnights + np.where(has_dawn, dawn, 0.0) / 24.0
     star_alt, star_az = star_altaz(s['ra'], s['dec'], s['pm_ra'], s['pm_dec'], s['dist'],
-                                   dawn_jd, lat, lon)
+                                   dawn_jd, lat, lon, s['rv'])
     star_alt = _observed(star_alt, elevation_m, refract)
     visible = has_dawn & (star_alt >= star_limit)
 

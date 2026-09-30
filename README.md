@@ -79,7 +79,7 @@ src/
   timescales.py     Delta T (difference between uniform time and Earth rotation time)
   refraction.py     Atmospheric refraction, scaled by the site's elevation
   visibility.py     How dark the sky must be, and how high a star, for it to be seen at dawn
-  data.py           Star catalog (60 stars, J2000 positions + proper motion) and monument list
+  data.py           Star catalog (60 stars: J2000 positions, proper motions, radial velocities) and monument list
   visualize.py      Static chart export helpers
 templates/
   index.html        Single-page app, all UI and Plotly.js rendering
@@ -101,7 +101,8 @@ Star positions use a single model at every epoch (`src/precession.py`):
 
 - **Precession:** Vondrák, Capitaine & Wallace (2011), valid to +/-200,000 years. The standard IAU 2006 polynomials are fitted to a few centuries of observations and drift by a third of a degree by 10,500 BC.
 - **Earth rotation:** hour angles come from the Earth Rotation Angle, which is linear in UT1, measured from the Celestial Intermediate Origin. The CIO locator `s` is integrated numerically from the long-term pole, because the IAU 2006 series for `s` diverges beyond a few millennia.
-- **Proper motion:** rigorous 3D space motion (`erfa.pmsafe`) from the J2000 catalog.
+- **Space motion:** each star moves in a straight line through space (`erfa.pmsafe`) from its J2000 position, using its proper motion and its radial velocity from [SIMBAD](https://simbad.cds.unistra.fr/). The radial velocity matters for nearby fast stars: an approaching star was farther away in the past and crossed the sky more slowly. Without it Alpha Centauri would be 2.2 degrees out of place at 10,500 BC, and Altair, Sirius and Procyon 0.07 to 0.14 degrees.
+- **Binary stars:** over millennia a binary moves with its centre of mass, not with the orbital wobble of one component. Alpha Centauri uses the barycentric motion of Kervella et al. (2016). Sirius keeps its Hipparcos values, which the orbit of Bond et al. (2017) confirms are barycentric: they predict Sirius B's Gaia proper motion to within about 20 mas/yr.
 
 The engine computes geometric mean places: nutation and aberration (each under 21 arcseconds) are not applied.
 
