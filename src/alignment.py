@@ -19,27 +19,37 @@ _CATALOG = {
 }
 
 
-def _date_to_jd(year, month, day, hour):
-    """
-    Convert a proleptic Gregorian calendar date to Julian Day Number.
+CALENDARS = ('gregorian', 'julian')
 
-    Uses the Meeus algorithm (Astronomical Algorithms, ch. 7).
-    Python's // (floor division) matches Meeus's INT() for negative years.
-    Year 0 = 1 BC, year -1 = 2 BC, etc. (astronomical year numbering).
+
+def _date_to_jd(year, month, day, hour, calendar='gregorian'):
+    """
+    Convert a calendar date to Julian Day Number.
+
+    calendar is 'gregorian' or 'julian', both proleptic (extended backwards
+    before 1582 and 45 BC). Uses the Meeus algorithm (Astronomical
+    Algorithms, ch. 7); Python's // (floor division) matches Meeus's INT()
+    for negative years. Year 0 = 1 BC, year -1 = 2 BC, etc. (astronomical
+    year numbering).
     """
     y, m = year, month
     d = day + hour / 24.0
     if m <= 2:
         y -= 1
         m += 12
-    a = y // 100
-    b = 2 - a + a // 4
+    if calendar == 'gregorian':
+        a = y // 100
+        b = 2 - a + a // 4
+    else:
+        b = 0
     return math.floor(365.25 * (y + 4716)) + math.floor(30.6001 * (m + 1)) + d + b - 1524.5
 
 
-def days_in_month(year, month):
-    """Length of a proleptic Gregorian month (astronomical year numbering)."""
+def days_in_month(year, month, calendar='gregorian'):
+    """Length of a proleptic Gregorian or Julian month (astronomical year numbering)."""
     if month == 2:
+        if calendar == 'julian':
+            return 29 if year % 4 == 0 else 28
         return 29 if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0 else 28
     return 30 if month in (4, 6, 9, 11) else 31
 
@@ -49,21 +59,25 @@ def format_year(year):
     return f"{1 - year} BC" if year <= 0 else f"{year} AD"
 
 
-_DAYS_PER_400_YEARS = 146097
+_DAYS_PER_400_YEARS = {'gregorian': 146097, 'julian': 146100}
 
 
-def _jd_to_date(jd):
+def _jd_to_date(jd, calendar='gregorian'):
     """
-    Proleptic Gregorian (year, month, day) containing a Julian Date.
+    Calendar (year, month, day) containing a Julian Date.
 
     Inverse of _date_to_jd (Meeus ch. 7). Negative Julian Dates are first
-    shifted forward by whole 400-year Gregorian cycles, over which the
-    calendar repeats exactly.
+    shifted forward by whole 400-year cycles, over which either calendar
+    repeats exactly.
     """
-    cycles = max(0, math.ceil(-jd / _DAYS_PER_400_YEARS) + 1)
-    z = math.floor(jd + 0.5) + cycles * _DAYS_PER_400_YEARS
-    alpha = math.floor((z - 1867216.25) / 36524.25)
-    b = z + 1 + alpha - math.floor(alpha / 4) + 1524
+    cycle = _DAYS_PER_400_YEARS[calendar]
+    cycles = max(0, math.ceil(-jd / cycle) + 1)
+    z = math.floor(jd + 0.5) + cycles * cycle
+    if calendar == 'gregorian':
+        alpha = math.floor((z - 1867216.25) / 36524.25)
+        b = z + 1 + alpha - math.floor(alpha / 4) + 1524
+    else:
+        b = z + 1524
     c = math.floor((b - 122.1) / 365.25)
     e = math.floor((b - math.floor(365.25 * c)) / 30.6001)
     day = b - math.floor(365.25 * c) - math.floor(30.6001 * e)
@@ -72,12 +86,19 @@ def _jd_to_date(jd):
     return year - 400 * cycles, month, day
 
 
+def local_calendar_dates(jd_ut, lon):
+    """Local date at a UT Julian Date in each calendar: {calendar: {year, month, day}}."""
+    local = jd_ut + lon / 360.0
+    return {cal: dict(zip(('year', 'month', 'day'), _jd_to_date(local, cal))) for cal in CALENDARS}
+
+
 def _observed(altitude, elevation_m, refract):
     """Geometric altitude as an observer sees it, with refraction if requested."""
     return apparent_altitude(altitude, elevation_m) if refract else np.asarray(altitude, dtype=float)
 
 
-def calculate_alignments(lat, lon, year, month, day, hour, elevation_m=0.0, refract=True):
+def calculate_alignments(lat, lon, year, month, day, hour, elevation_m=0.0, refract=True,
+                         calendar='gregorian'):
     """
     Compute altitude and azimuth for every star, the Sun, Moon and planets.
 
@@ -95,7 +116,7 @@ def calculate_alignments(lat, lon, year, month, day, hour, elevation_m=0.0, refr
     """
     # Convert local mean solar time to UT (the user picks local time; lon/15 is the offset)
     hour_ut = hour - lon / 15.0
-    jd = _date_to_jd(year, month, day, hour_ut)
+    jd = _date_to_jd(year, month, day, hour_ut, calendar)
 
     alt, az = star_altaz(_CATALOG['ra'], _CATALOG['dec'], _CATALOG['pm_ra'],
                          _CATALOG['pm_dec'], _CATALOG['dist'], jd, lat, lon, _CATALOG['rv'])
@@ -138,7 +159,7 @@ def _dawn_hours(midnights, lat, lon, sun_limit):
 
 
 def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTION,
-                         elevation_m=0.0, refract=True):
+                         elevation_m=0.0, refract=True, calendar='gregorian'):
     """
     Find the first dawn in the target year on which star_name can be seen,
     after a dawn on which it could not.
@@ -150,7 +171,8 @@ def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTIO
     unless refract is False; the Sun's is geometric.
 
     The scan starts on 1 October of the previous year so that a star already
-    visible on 1 January is not reported as rising that day.
+    visible on 1 January is not reported as rising that day. The year and the
+    returned date are in the given calendar ('gregorian' or 'julian').
 
     Returns {'found': True, date and geometry...}, or {'found': False,
     'reason': ...} where reason is 'always_visible' (seen every dawn, as for a
@@ -159,9 +181,9 @@ def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTIO
     """
     s = STARS[star_name]
     star_limit, sun_limit = (float(v) for v in visibility_thresholds(s['mag'], extinction))
-    first_midnight = _date_to_jd(year - 1, 10, 1, -lon / 15.0)
-    n_days = round(_date_to_jd(year + 1, 1, 1, -lon / 15.0) - first_midnight)
-    first_target_day = round(_date_to_jd(year, 1, 1, -lon / 15.0) - first_midnight)
+    first_midnight = _date_to_jd(year - 1, 10, 1, -lon / 15.0, calendar)
+    n_days = round(_date_to_jd(year + 1, 1, 1, -lon / 15.0, calendar) - first_midnight)
+    first_target_day = round(_date_to_jd(year, 1, 1, -lon / 15.0, calendar) - first_midnight)
     midnights = first_midnight + np.arange(n_days)
 
     dawn = _dawn_hours(midnights, lat, lon, sun_limit)
@@ -185,7 +207,7 @@ def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTIO
         return {'found': False, 'reason': reason}
 
     k = rising[0]
-    y, m, d = _jd_to_date(midnights[k] + 0.5)
+    y, m, d = _jd_to_date(midnights[k] + 0.5, calendar)
     return {
         'found': True,
         'year':  y,
@@ -200,7 +222,8 @@ def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTIO
     }
 
 
-def calculate_ecliptic(lat, lon, year, month, day, hour, elevation_m=0.0, refract=True):
+def calculate_ecliptic(lat, lon, year, month, day, hour, elevation_m=0.0, refract=True,
+                       calendar='gregorian'):
     """
     Return 73 points (0°..360° ecliptic longitude, step 5°) projected onto
     the local alt-az frame.  The 73rd point closes the loop back to 0°.
@@ -208,7 +231,7 @@ def calculate_ecliptic(lat, lon, year, month, day, hour, elevation_m=0.0, refrac
     Uses the mean ecliptic of date from the long-term precession model, with
     refraction applied as in calculate_alignments.
     """
-    jd = _date_to_jd(year, month, day, hour - lon / 15.0)
+    jd = _date_to_jd(year, month, day, hour - lon / 15.0, calendar)
     longitudes = np.arange(73) * 5.0
     alt, az = ecliptic_altaz(jd, lat, lon, longitudes)
     alt = _observed(alt, elevation_m, refract)

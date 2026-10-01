@@ -437,6 +437,13 @@
       </div>
     </div>
 
+    <label style="display:block; margin-top:10px"
+      title="Historians give ancient dates in the Julian calendar; the Gregorian calendar keeps the seasons fixed">Calendar</label>
+    <select id="calendar-select" autocomplete="off" style="width:100%; margin-top:4px">
+      <option value="gregorian" selected>Gregorian (modern, seasons fixed)</option>
+      <option value="julian">Julian (as in historical sources)</option>
+    </select>
+
     <div class="slider-wrap" style="margin-top:14px">
       <label>Hour (local)</label>
       <div class="value-display" id="hour-display">22:00</div>
@@ -715,16 +722,35 @@
     return y;
   }
 
-  // Proleptic Gregorian month length for an astronomical year.
-  function daysInMonth(year, month) {
-    if (month === 2) return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28;
+  // ── Calendar ──
+  // Dates are proleptic Gregorian or Julian; switching relabels the same moment.
+  function currentCalendar() {
+    return document.getElementById('calendar-select').value;
+  }
+
+  // Calendar the date inputs are written in. It differs from the selector only
+  // between a switch (or a preset / heliacal jump given in another calendar) and
+  // the next response, which relabels the inputs from meta.dates.
+  let inputCalendar = 'gregorian';
+
+  function onCalendarChange() {
+    fetchAndRender(false, inputCalendar);
+  }
+
+  function isLeapYear(year, calendar = currentCalendar()) {
+    if (calendar === 'julian') return year % 4 === 0;
+    return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  }
+
+  function daysInMonth(year, month, calendar = currentCalendar()) {
+    if (month === 2) return isLeapYear(year, calendar) ? 29 : 28;
     return [4, 6, 9, 11].includes(month) ? 30 : 31;
   }
 
-  function clampDay() {
+  function clampDay(calendar = currentCalendar()) {
     const dayInput = document.getElementById('day');
     const max = daysInMonth(+document.getElementById('year-slider').value,
-                            +document.getElementById('month-select').value);
+                            +document.getElementById('month-select').value, calendar);
     const day = parseInt(dayInput.value);
     dayInput.max = max;
     dayInput.value = isNaN(day) ? 1 : Math.max(1, Math.min(max, day));
@@ -765,9 +791,9 @@
     },
     {
       title: 'Sirius and the Nile Flood',
-      desc:  'Sirius rises at dawn: Egyptian New Year and the start of the flood, 2781 BC',
+      desc:  'Sirius rises at dawn on 19 July (Julian calendar): Egyptian New Year and the start of the flood, 2781 BC',
       site:  'Great Pyramid of Giza',
-      year: -2780, month: 6, day: 26, hour: 4,
+      year: -2780, month: 7, day: 19, hour: 4, calendar: 'julian',
     },
     {
       title: 'Göbekli Tepe at Night',
@@ -797,6 +823,7 @@
     document.getElementById('day').value = preset.day;
     document.getElementById('hour-slider').value = preset.hour;
     document.getElementById('hour-display').textContent = formatHour(preset.hour);
+    inputCalendar = preset.calendar || 'gregorian';
     fetchAndRender();
   }
 
@@ -866,8 +893,9 @@
     setYear(toAstronomicalYear(raw));
     fetchAndRender();
   }
-  document.getElementById('month-select').addEventListener('change', clampDay);
-  document.getElementById('day').addEventListener('change', clampDay);
+  document.getElementById('calendar-select').addEventListener('change', onCalendarChange);
+  document.getElementById('month-select').addEventListener('change', () => clampDay());
+  document.getElementById('day').addEventListener('change', () => clampDay());
   document.getElementById('year-input').addEventListener('change', applyYearInput);
   document.getElementById('year-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') applyYearInput();
@@ -940,7 +968,7 @@
     btn.textContent = 'SEARCHING…';
 
     const extinction = document.getElementById('hr-extinction').value;
-    const query = new URLSearchParams({ star, year, extinction, ...locationParams() });
+    const query = new URLSearchParams({ star, year, extinction, calendar: currentCalendar(), ...locationParams() });
     try {
       displayHeliacalResult(await getJson(`/api/heliacal?${query}`), star);
     } catch (e) {
@@ -957,7 +985,9 @@
       showHeliacalMessage(data.message);
       return;
     }
-    const dateStr = `${HR_MONTHS[data.month]} ${data.day}, ${formatYear(data.year)}`;
+    const calendar = data.calendar === 'julian' ? 'julian' : 'gregorian';
+    const dateStr = `${HR_MONTHS[data.month]} ${data.day}, ${formatYear(data.year)} ` +
+                    `(${calendar === 'julian' ? 'Julian' : 'Gregorian'})`;
     const note    = STAR_NOTES[star] || '';
     const snapHour = Math.round(data.dawn_hour_local * 2) / 2;
 
@@ -971,18 +1001,19 @@
         </div>
         ${note ? `<div class="hr-card-note">${note}</div>` : ''}
         <button class="hr-jump"
-          onclick="jumpToHeliacal(${data.year},${data.month},${data.day},${snapHour})">
+          onclick="jumpToHeliacal(${data.year},${data.month},${data.day},${snapHour},'${calendar}')">
           Jump to this dawn →
         </button>
       </div>`;
   }
 
-  function jumpToHeliacal(year, month, day, hour) {
+  function jumpToHeliacal(year, month, day, hour, calendar) {
     setYear(year);
     document.getElementById('month-select').value       = month;
     document.getElementById('day').value                = day;
     document.getElementById('hour-slider').value        = hour;
     document.getElementById('hour-display').textContent = formatHour(hour);
+    inputCalendar = calendar;
     fetchAndRender();
   }
 
@@ -996,6 +1027,7 @@
     const p = new URLSearchParams(locationParams());
     p.set('year', year); p.set('month', month);
     p.set('day', day);   p.set('hour', hour);
+    if (currentCalendar() === 'julian') p.set('calendar', 'julian');
     p.set('mag', mag);
     p.set('planets',  planetsOn  ? '1' : '0');
     p.set('labels',   labelsOn   ? '1' : '0');
@@ -1018,6 +1050,9 @@
   function loadFromUrl() {
     const p = new URLSearchParams(window.location.search);
     if (!p.has('year')) return false;
+
+    inputCalendar = p.get('calendar') === 'julian' ? 'julian' : 'gregorian';
+    document.getElementById('calendar-select').value = inputCalendar;
 
     const site = p.get('site');
     if (site) {
@@ -1052,22 +1087,32 @@
     return true;
   }
 
-  function fetchAndRender(silent = false) {
+  function fetchAndRender(silent = false, calendar = inputCalendar) {
     if (!silent && animating) stopAnimation();
     const btn = document.getElementById('view-btn');
     if (!silent) { btn.disabled = true; btn.textContent = 'LOADING…'; }
 
-    clampDay();
+    clampDay(calendar);
     const query = new URLSearchParams({
       year:  document.getElementById('year-slider').value,
       month: document.getElementById('month-select').value,
       day:   document.getElementById('day').value,
       hour:  document.getElementById('hour-slider').value,
+      calendar,
       ...locationParams(),
     });
 
     return Promise.all([getJson(`/api/stars?${query}`), getJson(`/api/ecliptic?${query}`)])
       .then(([data, eclResp]) => {
+        const shown = currentCalendar();
+        if (calendar !== shown) {
+          const date = data.meta.dates[shown];
+          setYear(date.year);
+          document.getElementById('month-select').value = date.month;
+          document.getElementById('day').value = date.day;
+          clampDay(shown);
+        }
+        inputCalendar = shown;
         eclipticData = eclResp.points;
         renderChart(data);
         updateInfoBar(data);
@@ -1092,7 +1137,7 @@
     const bar = document.getElementById('info-bar');
     bar.style.display = 'flex';
 
-    const yearStr = formatYear(data.meta.year);
+    const yearStr = formatYear(data.meta.dates[currentCalendar()].year);
     const site = data.monument ? data.monument.name : `${data.meta.lat}°, ${data.meta.lon}°`;
     document.getElementById('ib-site').textContent = `${site} | ${yearStr}`;
     document.getElementById('ib-jd').textContent = data.meta.jd.toFixed(1);

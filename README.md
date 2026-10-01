@@ -21,6 +21,7 @@ An interactive web app for reconstructing the ancient night sky at historical si
 - **Precession sweep:** watch the North Celestial Pole trace its 26,000-year arc; animate in 10yr / 100yr / 1kyr steps
 - **Heliacal rising finder:** find the exact date a star first appears at dawn after a period of solar conjunction
 - **URL permalink:** every state (site, date, toggles) is encoded in the URL; share or bookmark any view
+- **Gregorian or Julian dates:** read dates the way modern astronomers or historical sources give them
 
 ![Heliacal rising result for Sirius at Giza](docs/screenshot_heliacal.png)
 
@@ -152,6 +153,8 @@ python -m pytest
 | `GET /api/ecliptic` | same as `/api/stars` | 73 ecliptic great-circle points in alt-az |
 | `GET /api/heliacal` | `lat, lon, year, star, extinction, site` | First heliacal rising date for a star |
 | `GET /api/sites` | none | List of all monument sites with coordinates and orientation notes |
+
+Dates are in the proleptic Gregorian calendar unless `calendar=julian` is given; `/api/stars` returns the same local date in both calendars in `meta.dates`, and `/api/heliacal` answers in the calendar requested. Historians give ancient dates in the Julian calendar (the Sothic rising of Sirius on 19 July), which by 2781 BC runs 23 days ahead of the Gregorian (26 June); the web interface can show either and switching relabels the same moment.
 
 `year` uses astronomical convention: -2500 = 2501 BC, 0 = 1 BC, 1 = 1 AD. The web interface shows and accepts historical years instead (-2500 = 2500 BC, no year 0) and converts them, so permalinks carry the astronomical value.
 

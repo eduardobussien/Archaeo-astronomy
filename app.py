@@ -5,8 +5,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from flask import Flask, jsonify, request, render_template
-from alignment import (calculate_alignments, calculate_ecliptic, days_in_month,
-                       find_heliacal_rising, format_year)
+from alignment import (CALENDARS, calculate_alignments, calculate_ecliptic, days_in_month,
+                       find_heliacal_rising, format_year, local_calendar_dates)
 from data import MONUMENTS, STARS
 from precession import EPOCH_RANGE
 from visibility import DEFAULT_EXTINCTION
@@ -78,13 +78,21 @@ def _location():
             None)
 
 
+def _calendar():
+    calendar = request.args.get('calendar', 'gregorian').lower()
+    if calendar not in CALENDARS:
+        raise ApiError("'calendar' must be 'gregorian' or 'julian'")
+    return calendar
+
+
 def _date_time():
-    """(year, month, day, hour): astronomical year, proleptic Gregorian date, local hour."""
+    """(year, month, day, hour, calendar): astronomical year, date in that calendar, local hour."""
+    calendar = _calendar()
     year = _number('year', -2499, int, *YEAR_RANGE)
     month = _number('month', 3, int, 1, 12)
-    day = _number('day', 20, int, 1, days_in_month(year, month))
+    day = _number('day', 20, int, 1, days_in_month(year, month, calendar))
     hour = _number('hour', 22.0, float, 0.0, 24.0)
-    return year, month, day, hour
+    return year, month, day, hour, calendar
 
 
 @app.route('/')
@@ -106,14 +114,16 @@ def stars():
         month      - 1-12 (default: 3)
         day        - 1 to the length of the month (default: 20)
         hour       - local mean solar time, 0-24 (default: 22.0)
+        calendar   - 'gregorian' (default) or 'julian', both proleptic
         refraction - 1 for apparent altitudes (default), 0 for geometric
 
+    meta.dates gives the same local date in both calendars.
     Invalid parameters return HTTP 400 (404 for an unknown site) with {"error": message}.
     """
     lat, lon, elevation, site = _location()
-    year, month, day, hour = _date_time()
+    year, month, day, hour, calendar = _date_time()
     refract = _flag('refraction', True)
-    results = calculate_alignments(lat, lon, year, month, day, hour, elevation, refract)
+    results = calculate_alignments(lat, lon, year, month, day, hour, elevation, refract, calendar)
 
     monument_info = None
     if site:
@@ -133,6 +143,8 @@ def stars():
             'era':     'BC' if year <= 0 else 'AD',
             'month':   month,
             'day':     day,
+            'calendar': calendar,
+            'dates':   local_calendar_dates(results['jd'], lon),
             'hour':    hour,
             'hour_ut': round(hour - lon / 15.0, 4),
             'jd':      float(results['jd']),
@@ -166,12 +178,14 @@ def heliacal():
     """
     Find the heliacal rising of a star in a given year and location.
 
-    Query parameters: site or lat/lon/elevation and refraction (as /api/stars),
-    year (astronomical), star (catalog name, default Sirius), extinction
-    (atmospheric extinction in magnitudes per airmass, 0.1 to 0.6, default
-    0.27; higher means hazier air, so the star must climb higher to be seen).
+    Query parameters: site or lat/lon/elevation, refraction and calendar (as
+    /api/stars), year (astronomical, in that calendar), star (catalog name,
+    default Sirius), extinction (atmospheric extinction in magnitudes per
+    airmass, 0.1 to 0.6, default 0.27; higher means hazier air, so the star
+    must climb higher to be seen). The date returned is in the same calendar.
     """
     lat, lon, elevation, _ = _location()
+    calendar = _calendar()
     year = _number('year', -2780, int, *YEAR_RANGE)
     extinction = _number('extinction', DEFAULT_EXTINCTION, float, 0.1, 0.6)
     refract = _flag('refraction', True)
@@ -179,7 +193,8 @@ def heliacal():
     if star not in STARS:
         raise ApiError("Unknown star; it must be one of the catalog names")
 
-    result = find_heliacal_rising(lat, lon, year, star, extinction, elevation, refract)
+    result = find_heliacal_rising(lat, lon, year, star, extinction, elevation, refract, calendar)
+    result['calendar'] = calendar
     if not result['found']:
         when = format_year(year)
         result['message'] = {
@@ -200,9 +215,10 @@ def ecliptic():
     Accepts the same query parameters as /api/stars.
     """
     lat, lon, elevation, _ = _location()
-    year, month, day, hour = _date_time()
+    year, month, day, hour, calendar = _date_time()
     refract = _flag('refraction', True)
-    return jsonify({'points': calculate_ecliptic(lat, lon, year, month, day, hour, elevation, refract)})
+    return jsonify({'points': calculate_ecliptic(lat, lon, year, month, day, hour,
+                                                 elevation, refract, calendar)})
 
 
 @app.route('/api/sites')

@@ -96,6 +96,29 @@ def test_refraction_parameters_are_validated(params):
     assert _get('/api/stars', **params).status_code == 400
 
 
+def test_calendars_describe_the_same_moment():
+    common = {'site': 'Great Pyramid of Giza', 'year': '-2780', 'hour': '4'}
+    julian = _get('/api/stars', month='7', day='19', calendar='julian', **common).get_json()
+    gregorian = _get('/api/stars', month='6', day='26', **common).get_json()
+    assert julian['meta']['jd'] == gregorian['meta']['jd']
+    assert julian['meta']['dates']['gregorian'] == {'year': -2780, 'month': 6, 'day': 26}
+    assert gregorian['meta']['dates']['julian'] == {'year': -2780, 'month': 7, 'day': 19}
+
+
+def test_calendar_is_validated_and_sets_leap_years():
+    assert _get('/api/stars', calendar='mayan').status_code == 400
+    assert _get('/api/stars', year='1900', month='2', day='29', calendar='julian').status_code == 200
+    assert _get('/api/stars', year='1900', month='2', day='29').status_code == 400
+
+
+def test_heliacal_date_follows_the_requested_calendar():
+    params = {'site': 'Great Pyramid of Giza', 'year': '-2780', 'star': 'Sirius'}
+    gregorian = _get('/api/heliacal', **params).get_json()
+    julian = _get('/api/heliacal', calendar='julian', **params).get_json()
+    assert julian['calendar'] == 'julian' and julian['month'] == 7
+    assert (julian['day'] - gregorian['day']) % 30 == 23
+
+
 def test_heliacal_finds_sirius():
     body = _get('/api/heliacal', site='Great Pyramid of Giza', year='-2780', star='Sirius').get_json()
     assert body['found'] and body['month'] == 6
