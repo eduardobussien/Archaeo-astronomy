@@ -837,9 +837,12 @@
   });
 
   // ── Populate site dropdown ──
+  let SITES = {};
+
   fetch('/api/sites')
     .then(r => r.json())
     .then(sites => {
+      SITES = sites;
       const sel = document.getElementById('site-select');
       Object.entries(sites).forEach(([name, data]) => {
         const opt = document.createElement('option');
@@ -859,21 +862,10 @@
     const customLoc = document.getElementById('custom-loc');
     const noteEl = document.getElementById('monument-note');
 
-    if (site === '') {
-      customLoc.style.display = 'block';
-      noteEl.style.display = 'none';
-    } else {
-      customLoc.style.display = 'none';
-      // Show the monument note (fetch from cached sites data)
-      fetch('/api/sites')
-        .then(r => r.json())
-        .then(sites => {
-          if (sites[site]) {
-            noteEl.textContent = sites[site].note;
-            noteEl.style.display = 'block';
-          }
-        });
-    }
+    customLoc.style.display = site === '' ? 'block' : 'none';
+    const note = SITES[site] && SITES[site].note;
+    noteEl.textContent = note || '';
+    noteEl.style.display = note ? 'block' : 'none';
   }
   document.getElementById('site-select').addEventListener('change', onSiteChange);
 
@@ -896,10 +888,8 @@
   document.getElementById('calendar-select').addEventListener('change', onCalendarChange);
   document.getElementById('month-select').addEventListener('change', () => clampDay());
   document.getElementById('day').addEventListener('change', () => clampDay());
+  // 'change' also fires when Enter commits the value, so no separate key handler.
   document.getElementById('year-input').addEventListener('change', applyYearInput);
-  document.getElementById('year-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') applyYearInput();
-  });
   document.getElementById('hour-slider').addEventListener('input', e => {
     document.getElementById('hour-display').textContent = formatHour(+e.target.value);
   });
@@ -926,9 +916,12 @@
   }
 
   // ── API helpers ──
-  async function getJson(url) {
-    const r = await fetch(url);
-    const body = await r.json().catch(() => ({}));
+  async function getJson(url, signal) {
+    const r = await fetch(url, { signal });
+    const body = await r.json().catch(err => {
+      if (err.name === 'AbortError') throw err;
+      return {};
+    });
     if (!r.ok) throw new Error(body.error || `Request failed (${r.status})`);
     return body;
   }
@@ -1087,10 +1080,21 @@
     return true;
   }
 
+  // Only the newest sky request may update the page: starting one cancels the
+  // previous, so a slow answer can never overwrite a newer one.
+  let skyRequest = null;
+  let manualRequestsInFlight = 0;
+
   function fetchAndRender(silent = false, calendar = inputCalendar) {
     if (!silent && animating) stopAnimation();
+    if (skyRequest) skyRequest.abort();
+    const request = skyRequest = new AbortController();
     const btn = document.getElementById('view-btn');
-    if (!silent) { btn.disabled = true; btn.textContent = 'LOADING…'; }
+    if (!silent) {
+      manualRequestsInFlight++;
+      btn.disabled = true;
+      btn.textContent = 'LOADING…';
+    }
 
     clampDay(calendar);
     const query = new URLSearchParams({
@@ -1102,8 +1106,10 @@
       ...locationParams(),
     });
 
-    return Promise.all([getJson(`/api/stars?${query}`), getJson(`/api/ecliptic?${query}`)])
+    return Promise.all([getJson(`/api/stars?${query}`, request.signal),
+                        getJson(`/api/ecliptic?${query}`, request.signal)])
       .then(([data, eclResp]) => {
+        if (request !== skyRequest) return;
         const shown = currentCalendar();
         if (calendar !== shown) {
           const date = data.meta.dates[shown];
@@ -1125,11 +1131,16 @@
         if (!silent) updateUrl();
       })
       .catch(err => {
+        if (err.name === 'AbortError' || request !== skyRequest) return;
         if (animating) stopAnimation();
         alert(`Could not compute the sky: ${err.message}`);
       })
       .finally(() => {
-        if (!silent) { btn.disabled = false; btn.textContent = 'VIEW THE SKY'; }
+        if (request === skyRequest) skyRequest = null;
+        if (!silent && --manualRequestsInFlight === 0) {
+          btn.disabled = false;
+          btn.textContent = 'VIEW THE SKY';
+        }
       });
   }
 
