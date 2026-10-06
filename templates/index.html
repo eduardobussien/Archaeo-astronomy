@@ -1106,9 +1106,8 @@
       ...locationParams(),
     });
 
-    return Promise.all([getJson(`/api/stars?${query}`, request.signal),
-                        getJson(`/api/ecliptic?${query}`, request.signal)])
-      .then(([data, eclResp]) => {
+    return getJson(`/api/stars?${query}`, request.signal)
+      .then(data => {
         if (request !== skyRequest) return;
         const shown = currentCalendar();
         if (calendar !== shown) {
@@ -1119,7 +1118,7 @@
           clampDay(shown);
         }
         inputCalendar = shown;
-        eclipticData = eclResp.points;
+        eclipticData = data.ecliptic;
         renderChart(data);
         updateInfoBar(data);
         if (!silent) updateDescription(data);

@@ -18,6 +18,14 @@ def test_stars_default_request_succeeds():
     assert set(body['planets']) == {'Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'}
 
 
+def test_stars_response_includes_the_ecliptic():
+    params = {'site': 'Stonehenge', 'year': '-2499', 'month': '6', 'day': '21', 'hour': '4'}
+    stars = _get('/api/stars', **params).get_json()
+    ecliptic = _get('/api/ecliptic', **params).get_json()
+    assert len(stars['ecliptic']) == 73
+    assert stars['ecliptic'] == ecliptic['points']
+
+
 def test_site_lookup_is_exact_and_case_insensitive():
     r = _get('/api/stars', site='stonehenge')
     assert r.status_code == 200

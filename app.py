@@ -103,7 +103,8 @@ def index():
 @app.route('/api/stars')
 def stars():
     """
-    Return star, Sun, Moon and planet positions for a location and historical date.
+    Return star, Sun, Moon and planet positions and the ecliptic for a location and
+    historical date, so one request draws the whole sky.
 
     Query parameters:
         site       - monument name from /api/sites (overrides lat/lon/elevation)
@@ -117,13 +118,15 @@ def stars():
         calendar   - 'gregorian' (default) or 'julian', both proleptic
         refraction - 1 for apparent altitudes (default), 0 for geometric
 
-    meta.dates gives the same local date in both calendars.
+    meta.dates gives the same local date in both calendars; ecliptic is the same
+    list /api/ecliptic returns.
     Invalid parameters return HTTP 400 (404 for an unknown site) with {"error": message}.
     """
     lat, lon, elevation, site = _location()
     year, month, day, hour, calendar = _date_time()
     refract = _flag('refraction', True)
     results = calculate_alignments(lat, lon, year, month, day, hour, elevation, refract, calendar)
+    ecliptic_points = calculate_ecliptic(lat, lon, year, month, day, hour, elevation, refract, calendar)
 
     monument_info = None
     if site:
@@ -170,6 +173,7 @@ def stars():
             }
             for name, d in results['planets'].items()
         },
+        'ecliptic': ecliptic_points,
     })
 
 

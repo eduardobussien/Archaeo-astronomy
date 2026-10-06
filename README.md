@@ -149,8 +149,8 @@ python -m pytest
 
 | Endpoint | Parameters | Description |
 |---|---|---|
-| `GET /api/stars` | `lat, lon, year, month, day, hour, site` | Star + planet alt-az positions |
-| `GET /api/ecliptic` | same as `/api/stars` | 73 ecliptic great-circle points in alt-az |
+| `GET /api/stars` | `lat, lon, elevation, year, month, day, hour, calendar, refraction, site` | Star, Sun, Moon and planet alt-az positions plus the ecliptic, everything one sky view needs |
+| `GET /api/ecliptic` | same as `/api/stars` | Only the 73 ecliptic great-circle points in alt-az |
 | `GET /api/heliacal` | `lat, lon, year, star, extinction, site` | First heliacal rising date for a star |
 | `GET /api/sites` | none | List of all monument sites with coordinates and orientation notes |
 
