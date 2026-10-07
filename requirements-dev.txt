@@ -1,0 +1,4 @@
+# Everything needed to run the tests: the app's packages plus the test tools.
+-r requirements.txt
+astropy==7.2.0  # independent reference values in the tests
+pytest==9.0.3

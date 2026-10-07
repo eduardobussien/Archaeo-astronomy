@@ -91,7 +91,8 @@ tests/
   test_api.py           Endpoint responses and input validation
   test_refraction.py    Refraction: horizon value, ERFA model, standard atmosphere
   test_visibility.py    Heliacal visibility: Schaefer and IMCCE criteria for Sirius
-requirements.txt
+requirements.txt        Packages the app needs
+requirements-dev.txt    Plus the test tools (astropy, pytest)
 ```
 
 ---
@@ -134,12 +135,14 @@ A star's heliacal rising is the first morning it can be glimpsed in the dawn twi
 
 Every dawn from the previous October to the end of the target year is checked at once: a vectorized bisection finds when the Sun reaches the star's darkness limit each morning, and the first dawn in the target year on which the star is high enough, after one on which it was not, is reported. Stars that are seen every dawn (like Thuban, the pole star around 2800 BC) or never (Canopus from Giza in hazy air) are reported as such. The model's quoted uncertainty (about 1.5 to 2 degrees in each threshold) corresponds to a few days in the date.
 
-To run the tests:
+To run the tests, with the virtual environment activated (step 2 above):
 
 ```bash
-pip install pytest
+pip install -r requirements-dev.txt
 python -m pytest
 ```
+
+If the environment is not activated, `python` may be your system Python, which does not have the project's packages, and every test file fails to import. Calling the environment's Python directly always works: `venv\Scripts\python.exe -m pytest` on Windows, `venv/bin/python -m pytest` on macOS / Linux.
 
 ![Precession sweep, NCP traces its 26,000-year arc](docs/screenshot_precession.png)
 
@@ -164,8 +167,11 @@ Dates are in the proleptic Gregorian calendar unless `calendar=julian` is given;
 
 ## Dependencies
 
+`requirements.txt` lists what the app needs; `requirements-dev.txt` adds the test tools.
+
 - **Flask:** web server
 - **pyerfa:** IAU SOFA routines: the Vondrák 2011 long-term precession and the Sun, Moon and planet theories
-- **astropy:** independent reference values in the tests
 - **numpy:** vectorized star and time calculations
+- **matplotlib:** static chart export (`src/visualize.py` only)
+- **astropy** and **pytest** (development only): independent reference values and the test runner
 - **Plotly.js** (CDN): interactive polar chart in the browser
