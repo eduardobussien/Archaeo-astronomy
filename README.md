@@ -1,5 +1,7 @@
 # Archaeo-Astronomy Sky Explorer
 
+[![tests](https://github.com/eduardobussien/Archaeo-astronomy/actions/workflows/tests.yml/badge.svg)](https://github.com/eduardobussien/Archaeo-astronomy/actions/workflows/tests.yml)
+
 An interactive web app for reconstructing the ancient night sky at historical sites, accounting for stellar proper motion and axial precession over thousands of years.
 
 ![Sky chart at Giza, 2500 BC](docs/screenshot_hero.png)
@@ -32,7 +34,7 @@ An interactive web app for reconstructing the ancient night sky at historical si
 **1. Clone the repo and create a virtual environment**
 
 ```bash
-git clone https://github.com/your-username/Archaeo-astronomy.git
+git clone https://github.com/eduardobussien/Archaeo-astronomy.git
 cd Archaeo-astronomy
 python -m venv venv
 ```
@@ -143,6 +145,8 @@ python -m pytest
 ```
 
 If the environment is not activated, `python` may be your system Python, which does not have the project's packages, and every test file fails to import. Calling the environment's Python directly always works: `venv\Scripts\python.exe -m pytest` on Windows, `venv/bin/python -m pytest` on macOS / Linux.
+
+GitHub Actions runs the same suite on Ubuntu and Windows for every push (`.github/workflows/tests.yml`); the badge at the top shows the latest result.
 
 ![Precession sweep, NCP traces its 26,000-year arc](docs/screenshot_precession.png)
 
