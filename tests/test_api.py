@@ -127,6 +127,31 @@ def test_heliacal_date_follows_the_requested_calendar():
     assert (julian['day'] - gregorian['day']) % 30 == 23
 
 
+def test_alignment_uses_the_monument_axis_by_default():
+    r = _get('/api/alignment', site='Göbekli Tepe', star='Sirius')
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body['azimuth'] == 165.0 and body['found']
+    night = body['crossings'][0]['night']
+    assert {'month', 'day', 'hour', 'azimuth'} <= set(night)
+
+
+@pytest.mark.parametrize('params', [
+    {'site': 'Stonehenge', 'azimuth': '200', 'event': 'rise'},
+    {'site': 'Stonehenge', 'azimuth': '60', 'event': 'set'},
+    {'site': 'Great Pyramid of Giza'},
+    {'lat': '30', 'lon': '31'},
+    {'site': 'Stonehenge', 'event': 'culminate'},
+    {'site': 'Stonehenge', 'star': 'Nibiru'},
+    {'site': 'Stonehenge', 'horizon': '15'},
+    {'site': 'Stonehenge', 'from': '-2000', 'to': '-3000'},
+])
+def test_alignment_rejects_invalid_requests(params):
+    r = _get('/api/alignment', **params)
+    assert r.status_code == 400
+    assert r.get_json()['error']
+
+
 def test_heliacal_finds_sirius():
     body = _get('/api/heliacal', site='Great Pyramid of Giza', year='-2780', star='Sirius').get_json()
     assert body['found'] and body['month'] == 6

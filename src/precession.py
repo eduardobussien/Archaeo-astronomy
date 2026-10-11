@@ -65,13 +65,28 @@ def gcrs_to_altaz(vectors, jd_ut1, lat, lon):
     Azimuth is measured from north through east. The UT1 date also serves as the
     TT argument of precession; the resulting error is below 1" at 10,000 BC.
     """
-    epj = julian_epoch(jd_ut1)
-    x, y, _ = np.moveaxis(_pole(epj), -1, 0)
-    c2i = erfa.c2ixys(x, y, cio_locator(epj))
-    ra_cirs, dec_cirs = erfa.c2s(np.einsum('...ij,...j->...i', c2i, vectors))
+    ra_cirs, dec_cirs = _to_cirs(vectors, jd_ut1)
     ha = erfa.era00(jd_ut1, 0.0) + np.radians(lon) - ra_cirs
     az, el = erfa.hd2ae(ha, dec_cirs, np.radians(lat))
     return np.degrees(el), np.degrees(az)
+
+
+def _to_cirs(vectors, jd):
+    """(right ascension from the CIO, declination) in radians on the equator of date."""
+    epj = julian_epoch(jd)
+    x, y, _ = np.moveaxis(_pole(epj), -1, 0)
+    c2i = erfa.c2ixys(x, y, cio_locator(epj))
+    return erfa.c2s(np.einsum('...ij,...j->...i', c2i, vectors))
+
+
+def star_declination(ra, dec, pm_ra_cosdec, pm_dec, distance, radial_velocity, jd):
+    """
+    Declination (degrees) on the equator of date, which with the site's
+    latitude fixes where on the horizon a star rises and sets. Units as for
+    star_altaz; jd may be an array.
+    """
+    ra_t, dec_t = space_motion(ra, dec, pm_ra_cosdec, pm_dec, distance, radial_velocity, jd)
+    return np.degrees(_to_cirs(erfa.s2c(ra_t, dec_t), jd)[1])
 
 
 def space_motion(ra, dec, pm_ra_cosdec, pm_dec, distance, radial_velocity, jd):

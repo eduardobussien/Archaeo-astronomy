@@ -27,3 +27,17 @@ def refraction(true_altitude, elevation_m=0.0):
 def apparent_altitude(true_altitude, elevation_m=0.0):
     """Altitude in degrees as seen through the atmosphere."""
     return np.asarray(true_altitude, dtype=float) + refraction(true_altitude, elevation_m)
+
+
+def true_altitude(apparent, elevation_m=0.0):
+    """
+    Geometric altitude in degrees that appears at the given altitude; the
+    inverse of apparent_altitude. Refraction changes slowly with altitude
+    (by less than a fifth of the change), so the fixed-point iteration
+    h = apparent - R(h) converges to well under an arcsecond in ten steps.
+    """
+    apparent = np.asarray(apparent, dtype=float)
+    h = apparent
+    for _ in range(10):
+        h = apparent - refraction(h, elevation_m)
+    return h

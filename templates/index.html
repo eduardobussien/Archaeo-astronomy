@@ -294,14 +294,21 @@
 
     /* ── Heliacal Rising ── */
     .hr-desc { font-size:0.72rem; color:#8b949e; margin:6px 0 10px; line-height:1.45; }
-    #hr-btn {
+    #hr-btn, #af-btn {
       width:100%; margin-top:10px; padding:8px;
       background:#1f6feb; border:none; border-radius:4px;
       color:#fff; font-size:0.78rem; font-weight:600; cursor:pointer;
       letter-spacing:0.5px; transition:background 0.15s;
     }
-    #hr-btn:hover { background:#388bfd; }
-    #hr-btn:disabled { background:#21262d; color:#8b949e; cursor:not-allowed; }
+    #hr-btn:hover, #af-btn:hover { background:#388bfd; }
+    #hr-btn:disabled, #af-btn:disabled { background:#21262d; color:#8b949e; cursor:not-allowed; }
+    .af-row {
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
+      font-size:0.78rem; color:#c9d1d9; padding:6px 0; border-top:1px solid #21262d;
+    }
+    .af-row small { display:block; color:#8b949e; font-size:0.7rem; }
+    .af-row .hr-jump { width:auto; padding:4px 10px; flex-shrink:0; }
+    #af-chart { height:150px; margin-top:8px; }
     .hr-card {
       background:#161b22; border:1px solid #30363d; border-radius:6px;
       padding:12px; margin-top:10px;
@@ -447,7 +454,7 @@
     <div class="slider-wrap" style="margin-top:14px">
       <label>Hour (local)</label>
       <div class="value-display" id="hour-display">22:00</div>
-      <input type="range" id="hour-slider" min="0" max="23.5" step="0.5" value="22" />
+      <input type="range" id="hour-slider" min="0" max="23.99" step="any" value="22" />
     </div>
 
     <div class="slider-wrap" style="margin-top:14px">
@@ -567,6 +574,39 @@
     <button id="hr-btn" onclick="findHeliacalRising()">FIND HELIACAL RISING</button>
 
     <div id="hr-result"></div>
+  </div>
+
+  <hr />
+
+  <!-- Alignment Finder -->
+  <div>
+    <div class="section-label">Alignment Finder</div>
+    <p class="hr-desc">Precession slowly moves where each star rises and sets. Find the years when a star rose or set exactly along an axis.</p>
+
+    <label>Star</label>
+    <select id="af-star" style="width:100%; margin-top:4px"></select>
+
+    <div class="row2" style="margin-top:10px">
+      <div>
+        <label>Event</label>
+        <select id="af-event">
+          <option value="rise">Rising</option>
+          <option value="set">Setting</option>
+        </select>
+      </div>
+      <div>
+        <label title="Compass bearing of the axis: 0 = north, 90 = east, 180 = south, 270 = west">Axis azimuth (°)</label>
+        <input type="number" id="af-azimuth" step="0.1" min="0" max="360" />
+      </div>
+    </div>
+
+    <label style="display:block; margin-top:10px"
+      title="How high the visible horizon is along the axis: raise it for hills or mountains">Horizon height (°)</label>
+    <input type="number" id="af-horizon" value="0" step="0.1" min="-2" max="10" style="width:100%; margin-top:4px" />
+
+    <button id="af-btn" onclick="findAlignment()">FIND ALIGNMENT</button>
+
+    <div id="af-result"></div>
   </div>
 
   <hr />
@@ -866,6 +906,13 @@
     const note = SITES[site] && SITES[site].note;
     noteEl.textContent = note || '';
     noteEl.style.display = note ? 'block' : 'none';
+
+    // The alignment finder starts from the monument's own axis.
+    if (SITES[site]) {
+      const az = SITES[site].orientation_az;
+      document.getElementById('af-azimuth').value = az;
+      document.getElementById('af-event').value = az > 180 ? 'set' : 'rise';
+    }
   }
   document.getElementById('site-select').addEventListener('change', onSiteChange);
 
@@ -904,15 +951,17 @@
   // ── Heliacal Rising Finder ──
   const HR_MONTHS = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  function populateHrStarSelect() {
-    const sel = document.getElementById('hr-star');
+  function populateStarSelects() {
     const stars = Object.keys(STAR_NOTES).sort();
-    stars.forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = opt.textContent = name;
-      if (name === 'Sirius') opt.selected = true;
-      sel.appendChild(opt);
-    });
+    for (const id of ['hr-star', 'af-star']) {
+      const sel = document.getElementById(id);
+      stars.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = name;
+        if (name === 'Sirius') opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
   }
 
   // ── API helpers ──
@@ -982,7 +1031,6 @@
     const dateStr = `${HR_MONTHS[data.month]} ${data.day}, ${formatYear(data.year)} ` +
                     `(${calendar === 'julian' ? 'Julian' : 'Gregorian'})`;
     const note    = STAR_NOTES[star] || '';
-    const snapHour = Math.round(data.dawn_hour_local * 2) / 2;
 
     el.innerHTML = `
       <div class="hr-card">
@@ -994,20 +1042,127 @@
         </div>
         ${note ? `<div class="hr-card-note">${note}</div>` : ''}
         <button class="hr-jump"
-          onclick="jumpToHeliacal(${data.year},${data.month},${data.day},${snapHour},'${calendar}')">
+          onclick="jumpToDate(${data.year},${data.month},${data.day},${data.dawn_hour_local},'${calendar}')">
           Jump to this dawn →
         </button>
       </div>`;
   }
 
-  function jumpToHeliacal(year, month, day, hour, calendar) {
+  function jumpToDate(year, month, day, hour, calendar) {
     setYear(year);
     document.getElementById('month-select').value       = month;
     document.getElementById('day').value                = day;
     document.getElementById('hour-slider').value        = hour;
     document.getElementById('hour-display').textContent = formatHour(hour);
     inputCalendar = calendar;
-    fetchAndRender();
+    return fetchAndRender();
+  }
+
+  // ── Alignment Finder ──
+  let alignmentResult = null;
+
+  function showAlignmentMessage(text) {
+    const p = document.createElement('p');
+    p.className = 'hr-not-found';
+    p.textContent = text;
+    document.getElementById('af-result').replaceChildren(p);
+  }
+
+  async function findAlignment() {
+    const btn = document.getElementById('af-btn');
+    const azimuth = parseFloat(document.getElementById('af-azimuth').value);
+    const horizon = parseFloat(document.getElementById('af-horizon').value);
+    if (isNaN(azimuth)) {
+      showAlignmentMessage('Enter the axis azimuth in degrees (0 = north, 90 = east, 180 = south, 270 = west).');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'SEARCHING…';
+    const query = new URLSearchParams({
+      star: document.getElementById('af-star').value,
+      event: document.getElementById('af-event').value,
+      azimuth,
+      horizon: isNaN(horizon) ? 0 : horizon,
+      from: YEAR_MIN,
+      to: YEAR_MAX,
+      calendar: currentCalendar(),
+      ...locationParams(),
+    });
+    try {
+      displayAlignmentResult(await getJson(`/api/alignment?${query}`));
+    } catch (e) {
+      showAlignmentMessage(e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'FIND ALIGNMENT';
+    }
+  }
+
+  function displayAlignmentResult(data) {
+    alignmentResult = data;
+    if (data.reason === 'never_crosses_horizon') {
+      showAlignmentMessage(data.message);
+      return;
+    }
+
+    const verb = data.event === 'rise' ? 'rose' : 'set';
+    const rows = data.crossings.map((c, i) => `
+      <div class="af-row">
+        <div>${formatYear(c.year)}<small>axis point drifting ${Math.abs(c.drift_deg_per_century).toFixed(2)}° per century</small></div>
+        ${c.night ? `<button class="hr-jump" onclick="showAlignmentCrossing(${i})">Show →</button>` : ''}
+      </div>`).join('');
+    const latestVerb = data.event === 'rise' ? 'rises' : 'sets';
+
+    const el = document.getElementById('af-result');
+    el.innerHTML = `
+      <div class="hr-card">
+        <div class="hr-card-star">${data.star}</div>
+        <div class="hr-card-date" id="af-headline"></div>
+        ${rows}
+        <div id="af-chart"></div>
+        <div class="hr-card-note">In ${formatYear(data.latest.year)} it ${latestVerb} at ${data.latest.azimuth.toFixed(1)}°.</div>
+      </div>`;
+    document.getElementById('af-headline').textContent = data.found
+      ? `${verb} on the ${data.azimuth}° axis in:`
+      : data.message;
+    drawAlignmentChart(data);
+  }
+
+  function drawAlignmentChart(data) {
+    const years = data.curve.map(p => toHistoricalYear(p.year));
+    const crossingYears = data.crossings.map(c => toHistoricalYear(c.year));
+    Plotly.newPlot('af-chart', [
+      {
+        x: years, y: data.curve.map(p => p.azimuth), mode: 'lines',
+        line: { color: '#58a6ff', width: 1.5 },
+        customdata: data.curve.map(p => formatYear(p.year)),
+        hovertemplate: '%{customdata}: %{y:.1f}°<extra></extra>',
+      },
+      {
+        x: [years[0], years[years.length - 1]], y: [data.azimuth, data.azimuth], mode: 'lines',
+        line: { color: '#f0c040', width: 1, dash: 'dash' }, hoverinfo: 'skip',
+      },
+      {
+        x: crossingYears, y: crossingYears.map(() => data.azimuth), mode: 'markers',
+        marker: { color: '#f0c040', size: 7 }, hoverinfo: 'skip',
+      },
+    ], {
+      margin: { l: 38, r: 8, t: 6, b: 32 },
+      paper_bgcolor: '#161b22', plot_bgcolor: '#161b22',
+      font: { color: '#8b949e', size: 9 },
+      xaxis: { title: { text: 'year (negative = BC)', font: { size: 9 } }, gridcolor: '#21262d', zeroline: false },
+      yaxis: { ticksuffix: '°', gridcolor: '#21262d', zeroline: false },
+      showlegend: false,
+    }, { displayModeBar: false, responsive: true });
+  }
+
+  function showAlignmentCrossing(index) {
+    const { crossings, azimuth, calendar } = alignmentResult;
+    const { year, night } = crossings[index];
+    sightlineAz = azimuth;
+    document.getElementById('sl-az').value = azimuth;
+    jumpToDate(year, night.month, night.day, night.hour, calendar).then(drawSightline);
   }
 
   // ── URL Permalink ──
@@ -1312,7 +1467,7 @@
     'Alnair':              '"The Bright One" of Grus the Crane, used by Polynesian navigators in the south Pacific alongside the Southern Cross for open-ocean wayfinding.',
   };
 
-  populateHrStarSelect();
+  populateStarSelects();
 
   let starClickWired = false;
   let labelsOn = false;

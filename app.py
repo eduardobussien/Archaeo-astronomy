@@ -1,3 +1,4 @@
+import datetime
 import math
 import os
 import sys
@@ -7,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 from flask import Flask, jsonify, request, render_template
 from alignment import (CALENDARS, calculate_alignments, calculate_ecliptic, days_in_month,
                        find_heliacal_rising, format_year, local_calendar_dates)
+from alignment_finder import EVENTS, find_axis_crossings
 from data import MONUMENTS, STARS
 from precession import EPOCH_RANGE
 from visibility import DEFAULT_EXTINCTION
@@ -208,6 +210,65 @@ def heliacal():
                              f"at dawn here in {when}.",
         }.get(result['reason'], f"No heliacal rising of {star} found here in {when}.")
 
+    return jsonify(result)
+
+
+@app.route('/api/alignment')
+def alignment():
+    """
+    Find the years in which a star rose or set along an axis.
+
+    Query parameters: site or lat/lon/elevation, refraction and calendar (as
+    /api/stars); star (catalog name, default Sirius); event ('rise' or 'set',
+    default 'rise'); azimuth (degrees from north through east; defaults to the
+    monument's orientation, required with custom coordinates; 0-180 for a
+    rising, 180-360 for a setting); horizon (apparent altitude of the visible
+    horizon, -2 to 10 degrees, default 0, raise it for distant hills); from
+    and to (astronomical years, default 12,000 BC to the current year).
+    """
+    lat, lon, elevation, site = _location()
+    calendar = _calendar()
+    refract = _flag('refraction', True)
+    star = request.args.get('star', 'Sirius')
+    if star not in STARS:
+        raise ApiError("Unknown star; it must be one of the catalog names")
+    event = request.args.get('event', 'rise').lower()
+    if event not in EVENTS:
+        raise ApiError("'event' must be 'rise' or 'set'")
+
+    default_azimuth = MONUMENTS[site]['orientation_az'] if site else None
+    azimuth = _number('azimuth', default_azimuth, float, 0.0, 360.0)
+    if azimuth is None:
+        raise ApiError("'azimuth' is required with custom coordinates")
+    if azimuth % 180.0 == 0.0:
+        raise ApiError("An axis due north or due south meets stars at their highest or lowest "
+                       "point in the sky, never as they rise or set; try the rising or setting "
+                       "direction of the star you have in mind")
+    low, high, side = (0.0, 180.0, 'eastern') if event == 'rise' else (180.0, 360.0, 'western')
+    if not low < azimuth < high:
+        raise ApiError(f"A star {event}s on the {side} half of the horizon, so the azimuth must be "
+                       f"between {low:.0f} and {high:.0f} degrees; got {azimuth:g}")
+
+    horizon = _number('horizon', 0.0, float, -2.0, 10.0)
+    first_year = _number('from', -11999, int, *YEAR_RANGE)
+    last_year = _number('to', datetime.date.today().year, int, *YEAR_RANGE)
+    if last_year <= first_year:
+        raise ApiError("'to' must be later than 'from'")
+
+    result = find_axis_crossings(lat, lon, star, azimuth, event, horizon, elevation,
+                                 refract, first_year, last_year, calendar)
+    result.update({'star': star, 'event': event, 'azimuth': azimuth, 'horizon': horizon,
+                   'calendar': calendar})
+    if not result['found']:
+        span = f"between {format_year(first_year)} and {format_year(last_year)}"
+        if result.get('reason') == 'never_crosses_horizon':
+            result['message'] = (f"{star} never {event}s over this horizon {span}: it stays "
+                                 "either always above it or always below it.")
+        else:
+            c = result['closest']
+            result['message'] = (f"{star} did not {event} on the {azimuth:g} degree axis {span}; "
+                                 f"it came closest in {format_year(c['year'])}, "
+                                 f"{abs(c['offset']):.1f} degrees away.")
     return jsonify(result)
 
 
