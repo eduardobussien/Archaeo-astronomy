@@ -51,6 +51,17 @@ def cio_locator(epj):
     return np.interp(epj, epochs, s)
 
 
+def mean_obliquity(jd):
+    """
+    Tilt of the equator to the ecliptic in degrees (no nutation), from the
+    angle between their long-term poles. It is the Sun's declination at the
+    solstices, so it sets how far north and south the Sun rises.
+    """
+    epj = julian_epoch(jd)
+    cos_eps = np.sum(np.asarray(erfa.ltpequ(epj)) * np.asarray(erfa.ltpecl(epj)), axis=-1)
+    return np.degrees(np.arccos(cos_eps))
+
+
 def local_mean_sidereal_time(jd_ut1, lon):
     """Local mean sidereal time in degrees, consistent with the long-term precession model."""
     epj = julian_epoch(jd_ut1)

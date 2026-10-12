@@ -581,9 +581,9 @@
   <!-- Alignment Finder -->
   <div>
     <div class="section-label">Alignment Finder</div>
-    <p class="hr-desc">Precession slowly moves where each star rises and sets. Find the years when a star rose or set exactly along an axis.</p>
+    <p class="hr-desc">Precession slowly moves where each star rises and sets. Find the years when a star rose or set exactly along an axis, or the days when the Sun did.</p>
 
-    <label>Star</label>
+    <label>Star or Sun</label>
     <select id="af-star" style="width:100%; margin-top:4px"></select>
 
     <div class="row2" style="margin-top:10px">
@@ -603,6 +603,17 @@
     <label style="display:block; margin-top:10px"
       title="How high the visible horizon is along the axis: raise it for hills or mountains">Horizon height (°)</label>
     <input type="number" id="af-horizon" value="0" step="0.1" min="-2" max="10" style="width:100%; margin-top:4px" />
+
+    <div id="af-sun-options" style="display:none">
+      <label style="display:block; margin-top:10px"
+        title="The Sun is half a degree across, so it matters which part counts as sunrise">Part of the Sun on the horizon</label>
+      <select id="af-limb" style="width:100%; margin-top:4px">
+        <option value="upper" selected>First (or last) gleam</option>
+        <option value="centre">Centre of the disc</option>
+        <option value="lower">Whole disc above the horizon</option>
+      </select>
+      <p class="hr-desc">Dates are searched in the year selected above.</p>
+    </div>
 
     <button id="af-btn" onclick="findAlignment()">FIND ALIGNMENT</button>
 
@@ -955,7 +966,7 @@
     const stars = Object.keys(STAR_NOTES).sort();
     for (const id of ['hr-star', 'af-star']) {
       const sel = document.getElementById(id);
-      stars.forEach(name => {
+      (id === 'af-star' ? ['Sun', ...stars] : stars).forEach(name => {
         const opt = document.createElement('option');
         opt.value = opt.textContent = name;
         if (name === 'Sirius') opt.selected = true;
@@ -1060,6 +1071,29 @@
 
   // ── Alignment Finder ──
   let alignmentResult = null;
+  let alignmentJumps = [];     // the moments the result's "Show" buttons jump to
+
+  const LIMB_WORDS = {
+    rise: { upper: 'first gleam', centre: 'centre of the disc', lower: 'whole disc up' },
+    set:  { upper: 'last gleam',  centre: 'centre of the disc', lower: 'whole disc still up' },
+  };
+
+  document.getElementById('af-star').addEventListener('change', e => {
+    document.getElementById('af-sun-options').style.display = e.target.value === 'Sun' ? 'block' : 'none';
+  });
+
+  function jumpRow(label, detail, moment) {
+    const i = alignmentJumps.push(moment) - 1;
+    return `
+      <div class="af-row">
+        <div>${label}<small>${detail}</small></div>
+        ${moment ? `<button class="hr-jump" onclick="showAlignmentJump(${i})">Show →</button>` : ''}
+      </div>`;
+  }
+
+  function driftDetail(c) {
+    return `axis point drifting ${Math.abs(c.drift_deg_per_century).toFixed(2)}° per century`;
+  }
 
   function showAlignmentMessage(text) {
     const p = document.createElement('p');
@@ -1079,8 +1113,9 @@
 
     btn.disabled = true;
     btn.textContent = 'SEARCHING…';
+    const star = document.getElementById('af-star').value;
     const query = new URLSearchParams({
-      star: document.getElementById('af-star').value,
+      star,
       event: document.getElementById('af-event').value,
       azimuth,
       horizon: isNaN(horizon) ? 0 : horizon,
@@ -1089,6 +1124,10 @@
       calendar: currentCalendar(),
       ...locationParams(),
     });
+    if (star === 'Sun') {
+      query.set('year', document.getElementById('year-slider').value);
+      query.set('limb', document.getElementById('af-limb').value);
+    }
     try {
       displayAlignmentResult(await getJson(`/api/alignment?${query}`));
     } catch (e) {
@@ -1101,17 +1140,19 @@
 
   function displayAlignmentResult(data) {
     alignmentResult = data;
+    alignmentJumps = [];
+    if (data.star === 'Sun') {
+      displaySunAlignment(data);
+      return;
+    }
     if (data.reason === 'never_crosses_horizon') {
       showAlignmentMessage(data.message);
       return;
     }
 
     const verb = data.event === 'rise' ? 'rose' : 'set';
-    const rows = data.crossings.map((c, i) => `
-      <div class="af-row">
-        <div>${formatYear(c.year)}<small>axis point drifting ${Math.abs(c.drift_deg_per_century).toFixed(2)}° per century</small></div>
-        ${c.night ? `<button class="hr-jump" onclick="showAlignmentCrossing(${i})">Show →</button>` : ''}
-      </div>`).join('');
+    const rows = data.crossings.map(c =>
+      jumpRow(formatYear(c.year), driftDetail(c), c.night && { year: c.year, ...c.night })).join('');
     const latestVerb = data.event === 'rise' ? 'rises' : 'sets';
 
     const el = document.getElementById('af-result');
@@ -1157,12 +1198,51 @@
     }, { displayModeBar: false, responsive: true });
   }
 
-  function showAlignmentCrossing(index) {
-    const { crossings, azimuth, calendar } = alignmentResult;
-    const { year, night } = crossings[index];
-    sightlineAz = azimuth;
-    document.getElementById('sl-az').value = azimuth;
-    jumpToDate(year, night.month, night.day, night.hour, calendar).then(drawSightline);
+  function displaySunAlignment(data) {
+    const el = document.getElementById('af-result');
+    if (!data.june) {
+      showAlignmentMessage(data.message);
+      return;
+    }
+    const noun = data.event === 'rise' ? 'sunrise' : 'sunset';
+    const Noun = noun[0].toUpperCase() + noun.slice(1);
+    const s = data.solstice;
+    const which = s.which === 'june' ? 'June' : 'December';
+
+    const dateRows = data.dates.map(d =>
+      jumpRow(`${HR_MONTHS[d.month]} ${d.day} at ${formatHour(d.hour)}`,
+              `azimuth ${d.azimuth.toFixed(2)}°`, { year: data.year, ...d })).join('');
+    const solsticeRows = (s.crossings || []).map(c =>
+      jumpRow(formatYear(c.year), driftDetail(c), c.night && { year: c.year, ...c.night })).join('');
+
+    el.innerHTML = `
+      <div class="hr-card">
+        <div class="hr-card-star">Sun <small style="color:#8b949e; font-weight:400">(${LIMB_WORDS[data.event][data.limb]})</small></div>
+        <div class="hr-card-date" id="af-headline"></div>
+        ${dateRows}
+        <div class="hr-card-note">That year the ${noun} point ran from ${data.june.azimuth.toFixed(1)}° at the
+          June solstice to ${data.december.azimuth.toFixed(1)}° at the December solstice.</div>
+        <div class="hr-card-date" id="af-solstice-headline"></div>
+        ${solsticeRows}
+        ${s.curve ? '<div id="af-chart"></div>' : ''}
+        ${s.latest ? `<div class="hr-card-note">In ${formatYear(s.latest.year)} the ${which} solstice ${noun} is at ${s.latest.azimuth.toFixed(1)}°.</div>` : ''}
+      </div>`;
+    document.getElementById('af-headline').textContent = data.dates.length
+      ? `${Noun} on the ${data.azimuth}° axis in ${formatYear(data.year)}:`
+      : data.message;
+    document.getElementById('af-solstice-headline').textContent = s.crossings.length
+      ? `${which} solstice ${noun} on the axis in:`
+      : s.closest
+        ? `The ${which} solstice ${noun} came closest in ${formatYear(s.closest.year)}, ${Math.abs(s.closest.offset).toFixed(1)}° from the axis.`
+        : '';
+    if (s.curve) drawAlignmentChart({ curve: s.curve, crossings: s.crossings, azimuth: data.azimuth });
+  }
+
+  function showAlignmentJump(index) {
+    const { year, month, day, hour } = alignmentJumps[index];
+    sightlineAz = alignmentResult.azimuth;
+    document.getElementById('sl-az').value = alignmentResult.azimuth;
+    jumpToDate(year, month, day, hour, alignmentResult.calendar).then(drawSightline);
   }
 
   // ── URL Permalink ──

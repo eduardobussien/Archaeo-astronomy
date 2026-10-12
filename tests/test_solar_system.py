@@ -6,7 +6,8 @@ from astropy.coordinates import AltAz, EarthLocation, get_body, solar_system_eph
 from astropy.time import Time
 
 from alignment import _date_to_jd
-from solar_system import body_altaz, geocentric_positions
+from precession import _to_cirs
+from solar_system import _sun_geocentric, body_altaz, geocentric_positions
 from timescales import _SEGMENTS, delta_t
 
 GIZA_LAT, GIZA_LON = 29.9792, 31.1342
@@ -92,6 +93,17 @@ def test_topocentric_bodies_match_astropy_near_j2000():
     for name, (alt, az) in body_altaz(jd, GIZA_LAT, GIZA_LON).items():
         ref = get_body(name.lower(), t, location=frame.location).transform_to(frame)
         assert _separation_deg(alt, az, ref.alt.deg, ref.az.deg) < 1.0 / 60.0, name
+
+
+# Largest declination of the Sun through the year, from JPL Horizons (DE441) every 6 hours.
+@pytest.mark.parametrize('year, de441_max', [(-8999, 24.205), (-2499, 23.977)])
+def test_sun_solstice_declination_matches_de441(year, de441_max):
+    # Without placing the Sun on the long-term ecliptic, 9000 BC came out 0.19 deg short.
+    jd = _date_to_jd(year, 1, 1, 0.0) + np.arange(0, 365, 0.25)
+    sun = _sun_geocentric(jd)
+    dec = np.degrees(_to_cirs(sun / np.linalg.norm(sun, axis=-1, keepdims=True), jd)[1])
+    assert abs(dec.max() - de441_max) < 0.02
+    assert abs(-dec.min() - de441_max) < 0.02
 
 
 def test_bodies_available_at_10500_bc():

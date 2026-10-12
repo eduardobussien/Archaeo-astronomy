@@ -28,12 +28,27 @@ def _earth_heliocentric(jd_tt):
         return erfa.epv00(jd_tt, 0.0)[0]['p']
 
 
+def _sun_geocentric(jd_tt, earth=None):
+    """
+    Geocentric Sun (au). Far from the present, epv00's orbital plane drifts off
+    the true ecliptic (by about 0.1 to 0.2 deg at 9000 BC against JPL DE441),
+    while the real Sun stays within a few arcseconds of it. So the Sun keeps
+    epv00's longitude along the ecliptic but is placed on the long-term
+    (Vondrák) ecliptic of date, which fixes its declination at the solstices.
+    """
+    sun = -(_earth_heliocentric(jd_tt) if earth is None else earth)
+    to_ecliptic = erfa.ltecm(erfa.epj(jd_tt, 0.0))
+    ecliptic = np.einsum('...ij,...j->...i', to_ecliptic, sun)
+    ecliptic[..., 2] = 0.0
+    return np.einsum('...ji,...j->...i', to_ecliptic, ecliptic)
+
+
 def geocentric_positions(jd_tt):
     """Geocentric GCRS position vectors (au) of each body at a TT Julian Date."""
     earth = _earth_heliocentric(jd_tt)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', erfa.ErfaWarning)
-        positions = {'Sun': -earth, 'Moon': erfa.moon98(jd_tt, 0.0)['p']}
+        positions = {'Sun': _sun_geocentric(jd_tt, earth), 'Moon': erfa.moon98(jd_tt, 0.0)['p']}
         for name, planet_id in _PLANET_ID.items():
             emitted = jd_tt
             for _ in range(2):
@@ -54,8 +69,12 @@ def body_altaz(jd_ut1, lat, lon):
     return {name: (float(a), float(z)) for name, a, z in zip(BODIES, alt, az)}
 
 
+def sun_altaz(jd_ut1, lat, lon):
+    """Geometric (altitude, azimuth) in degrees of the Sun's centre; jd_ut1 may be an array."""
+    sun = _sun_geocentric(ut1_to_tt(jd_ut1))
+    return gcrs_to_altaz(sun / np.linalg.norm(sun, axis=-1, keepdims=True), jd_ut1, lat, lon)
+
+
 def sun_altitude(jd_ut1, lat, lon):
     """Altitude (degrees) of the Sun's centre; jd_ut1 may be an array."""
-    sun = -_earth_heliocentric(ut1_to_tt(jd_ut1))
-    alt, _ = gcrs_to_altaz(sun / np.linalg.norm(sun, axis=-1, keepdims=True), jd_ut1, lat, lon)
-    return alt
+    return sun_altaz(jd_ut1, lat, lon)[0]

@@ -2,9 +2,12 @@ import numpy as np
 import pytest
 
 from alignment import _date_to_jd, _observed
-from alignment_finder import event_azimuths, find_axis_crossings
+from alignment_finder import (_sun_centre_altitude, event_azimuths, find_axis_crossings,
+                              find_sun_alignment, horizon_azimuth, sun_events_in_year)
 from data import MONUMENTS, STARS
-from precession import star_altaz
+from precession import J2000_JD, mean_obliquity, star_altaz
+from refraction import apparent_altitude
+from solar_system import sun_altaz
 
 STONEHENGE = MONUMENTS['Stonehenge']
 GIZA = MONUMENTS['Great Pyramid of Giza']
@@ -62,3 +65,53 @@ def test_reports_closest_approach_when_the_axis_is_never_reached():
     result = find_axis_crossings(GIZA['lat'], GIZA['lon'], 'Sirius', 60.0, 'rise')
     assert not result['found']
     assert result['closest']['offset'] > 0 and np.isfinite(result['closest']['azimuth'])
+
+
+# ── The Sun ──
+
+def test_obliquity_matches_iau_2006_at_j2000():
+    assert float(mean_obliquity(J2000_JD)) * 3600 == pytest.approx(84381.406, abs=0.01)
+    century = np.diff(mean_obliquity(J2000_JD + np.array([-18262.5, 18262.5])))[0] * 3600
+    assert century == pytest.approx(-46.84, abs=0.1)
+
+
+@pytest.mark.parametrize('site, year', [('Stonehenge', -2499), ('Stonehenge', -8999),
+                                        ('Newgrange', -3199), ('Machu Picchu', 1450)])
+def test_solstice_formula_agrees_with_the_years_sunrises(site, year):
+    # Two independent routes: the obliquity in a closed formula, and every
+    # sunrise of the year found from the solar ephemeris.
+    m = MONUMENTS[site]
+    _, az = sun_events_in_year(m['lat'], m['lon'], year, 'rise', elevation_m=m['elevation_m'])
+    eps = float(mean_obliquity(_date_to_jd(year, 7, 2, 0.0)))
+    h0 = _sun_centre_altitude(0.0, 'upper', m['elevation_m'], True)
+    assert np.nanmin(az) == pytest.approx(float(horizon_azimuth(eps, m['lat'], h0)), abs=0.01)
+    assert np.nanmax(az) == pytest.approx(float(horizon_azimuth(-eps, m['lat'], h0)), abs=0.01)
+
+
+def test_reported_sunrises_put_the_first_gleam_on_the_axis():
+    m = STONEHENGE
+    result = find_sun_alignment(m['lat'], m['lon'], m['orientation_az'], 'rise', -2499,
+                                elevation_m=m['elevation_m'])
+    assert len(result['dates']) == 2
+    for d in result['dates']:
+        jd = _date_to_jd(-2499, d['month'], d['day'], d['hour'] - m['lon'] / 15.0)
+        alt, az = sun_altaz(jd, m['lat'], m['lon'])
+        upper_limb = float(apparent_altitude(alt, m['elevation_m'])) + 0.2666
+        assert abs(upper_limb) < 0.01
+        assert abs(float(az) - m['orientation_az']) < 0.5     # nearest whole day
+
+
+def test_june_sunrise_is_north_of_east_in_the_southern_hemisphere_too():
+    m = MONUMENTS['Machu Picchu']
+    result = find_sun_alignment(m['lat'], m['lon'], 65.0, 'rise', 1450, elevation_m=m['elevation_m'])
+    assert result['june']['month'] == 6 and result['june']['azimuth'] < 90
+    assert result['december']['month'] == 12 and result['december']['azimuth'] > 90
+
+
+def test_finds_the_year_a_solstice_sunrise_fell_on_its_azimuth():
+    m = STONEHENGE
+    eps = float(mean_obliquity(_date_to_jd(-4000, 7, 2, 0.0)))
+    target = float(horizon_azimuth(eps, m['lat'], _sun_centre_altitude(0.0, 'upper', m['elevation_m'], True)))
+    result = find_sun_alignment(m['lat'], m['lon'], target, 'rise', -2499, elevation_m=m['elevation_m'])
+    assert result['solstice']['which'] == 'june'
+    assert -4000 in [c['year'] for c in result['solstice']['crossings']]

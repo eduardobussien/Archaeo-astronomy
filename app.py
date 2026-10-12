@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 from flask import Flask, jsonify, request, render_template
 from alignment import (CALENDARS, calculate_alignments, calculate_ecliptic, days_in_month,
                        find_heliacal_rising, format_year, local_calendar_dates)
-from alignment_finder import EVENTS, find_axis_crossings
+from alignment_finder import EVENTS, SUN_LIMBS, find_axis_crossings, find_sun_alignment
 from data import MONUMENTS, STARS
 from precession import EPOCH_RANGE
 from visibility import DEFAULT_EXTINCTION
@@ -216,22 +216,25 @@ def heliacal():
 @app.route('/api/alignment')
 def alignment():
     """
-    Find the years in which a star rose or set along an axis.
+    Find when a star, or the Sun, rose or set along an axis.
 
     Query parameters: site or lat/lon/elevation, refraction and calendar (as
-    /api/stars); star (catalog name, default Sirius); event ('rise' or 'set',
-    default 'rise'); azimuth (degrees from north through east; defaults to the
-    monument's orientation, required with custom coordinates; 0-180 for a
-    rising, 180-360 for a setting); horizon (apparent altitude of the visible
-    horizon, -2 to 10 degrees, default 0, raise it for distant hills); from
-    and to (astronomical years, default 12,000 BC to the current year).
+    /api/stars); star (catalog name or 'Sun', default Sirius); event ('rise'
+    or 'set', default 'rise'); azimuth (degrees from north through east;
+    defaults to the monument's orientation, required with custom coordinates;
+    0-180 for a rising, 180-360 for a setting); horizon (apparent altitude of
+    the visible horizon, -2 to 10 degrees, default 0, raise it for distant
+    hills); from and to (astronomical years, default 12,000 BC to the current
+    year). For the Sun also: year (astronomical, default -2499) to list the
+    days of that year, and limb ('upper' for the first gleam, the default,
+    'centre' or 'lower' for the whole disc on the horizon).
     """
     lat, lon, elevation, site = _location()
     calendar = _calendar()
     refract = _flag('refraction', True)
     star = request.args.get('star', 'Sirius')
-    if star not in STARS:
-        raise ApiError("Unknown star; it must be one of the catalog names")
+    if star != 'Sun' and star not in STARS:
+        raise ApiError("Unknown star; it must be 'Sun' or one of the catalog names")
     event = request.args.get('event', 'rise').lower()
     if event not in EVENTS:
         raise ApiError("'event' must be 'rise' or 'set'")
@@ -246,14 +249,18 @@ def alignment():
                        "direction of the star you have in mind")
     low, high, side = (0.0, 180.0, 'eastern') if event == 'rise' else (180.0, 360.0, 'western')
     if not low < azimuth < high:
-        raise ApiError(f"A star {event}s on the {side} half of the horizon, so the azimuth must be "
-                       f"between {low:.0f} and {high:.0f} degrees; got {azimuth:g}")
+        raise ApiError(f"Stars and the Sun {event} on the {side} half of the horizon, so the azimuth "
+                       f"must be between {low:.0f} and {high:.0f} degrees; got {azimuth:g}")
 
     horizon = _number('horizon', 0.0, float, -2.0, 10.0)
     first_year = _number('from', -11999, int, *YEAR_RANGE)
     last_year = _number('to', datetime.date.today().year, int, *YEAR_RANGE)
     if last_year <= first_year:
         raise ApiError("'to' must be later than 'from'")
+
+    if star == 'Sun':
+        return jsonify(_sun_alignment(lat, lon, elevation, azimuth, event, horizon, refract,
+                                      first_year, last_year, calendar))
 
     result = find_axis_crossings(lat, lon, star, azimuth, event, horizon, elevation,
                                  refract, first_year, last_year, calendar)
@@ -270,6 +277,28 @@ def alignment():
                                  f"it came closest in {format_year(c['year'])}, "
                                  f"{abs(c['offset']):.1f} degrees away.")
     return jsonify(result)
+
+
+def _sun_alignment(lat, lon, elevation, azimuth, event, horizon, refract, first_year, last_year,
+                   calendar):
+    year = _number('year', -2499, int, *YEAR_RANGE)
+    limb = request.args.get('limb', 'upper').lower()
+    if limb not in SUN_LIMBS:
+        raise ApiError("'limb' must be 'upper', 'centre' or 'lower'")
+
+    result = find_sun_alignment(lat, lon, azimuth, event, year, horizon, elevation, refract,
+                                limb, first_year, last_year, calendar)
+    result.update({'star': 'Sun', 'event': event, 'azimuth': azimuth, 'horizon': horizon,
+                   'limb': limb, 'calendar': calendar})
+    when = 'sunrise' if event == 'rise' else 'sunset'
+    if result['june'] is None:
+        result['message'] = f"There is no {when} here in {format_year(year)}."
+    elif not result['dates']:
+        result['message'] = (f"In {format_year(year)} {when} never fell on the {azimuth:g} degree "
+                             f"axis: it ranged from {result['june']['azimuth']:.1f} degrees at the "
+                             f"June solstice to {result['december']['azimuth']:.1f} degrees at the "
+                             "December solstice.")
+    return result
 
 
 @app.route('/api/ecliptic')

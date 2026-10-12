@@ -16,8 +16,9 @@ import numpy as np
 
 from alignment import _date_to_jd, _jd_to_date, _observed
 from data import STARS
-from precession import star_altaz, star_declination
+from precession import mean_obliquity, star_altaz, star_declination
 from refraction import true_altitude
+from solar_system import sun_altaz
 
 EVENTS = ('rise', 'set')
 _SIDEREAL_SHIFT_HOURS_PER_DAY = 24.0 / 365.2422
@@ -81,13 +82,44 @@ def night_of_event(lat, lon, year, star_name, event='rise', horizon=0.0, elevati
     if found is None:
         return None
     jd_event, azimuth = found
-    local = jd_event + lon / 360.0
-    _, month, day_of_month = _jd_to_date(local, calendar)
+    return {**_local_moment(jd_event, lon, calendar), 'azimuth': round(float(azimuth), 3)}
+
+
+def _local_moment(jd, lon, calendar):
+    """{'month', 'day', 'hour'} in local mean time for a UT Julian Date."""
+    local = jd + lon / 360.0
+    _, month, day = _jd_to_date(local, calendar)
+    return {'month': month, 'day': day, 'hour': round(float((local + 0.5) % 1.0) * 24.0, 3)}
+
+
+def _axis_summary(years, az, azimuth):
+    """
+    Where a yearly azimuth series crosses the axis, with its closest approach,
+    its last defined value and a thinned curve for plotting; None if the
+    series is undefined throughout.
+    """
+    offset = az - azimuth
+    valid = np.isfinite(offset)
+    if not valid.any():
+        return None
+    with np.errstate(invalid='ignore'):
+        changes = valid[:-1] & valid[1:] & (np.sign(offset[:-1]) != np.sign(offset[1:]))
+    crossings = []
+    for i in np.flatnonzero(changes):
+        f = offset[i] / (offset[i] - offset[i + 1])
+        crossings.append({
+            'year': int(round(years[i] + f)),
+            'drift_deg_per_century': round(float(az[i + 1] - az[i]) * 100.0, 3),
+        })
+    k = int(np.nanargmin(np.abs(offset)))
+    latest = int(np.flatnonzero(valid)[-1])
     return {
-        'month': month,
-        'day': day_of_month,
-        'hour': round(float((local + 0.5) % 1.0) * 24.0, 3),
-        'azimuth': round(float(azimuth), 3),
+        'crossings': crossings,
+        'closest': {'year': int(years[k]), 'azimuth': round(float(az[k]), 3),
+                    'offset': round(float(offset[k]), 3)},
+        'latest': {'year': int(years[latest]), 'azimuth': round(float(az[latest]), 3)},
+        'curve': [{'year': int(y), 'azimuth': None if np.isnan(a) else round(float(a), 3)}
+                  for y, a in zip(years[::_CURVE_STEP_YEARS], az[::_CURVE_STEP_YEARS])],
     }
 
 
@@ -102,34 +134,109 @@ def find_axis_crossings(lat, lon, star_name, azimuth, event='rise', horizon=0.0,
     'reason': 'never_crosses_horizon'}.
     """
     years = np.arange(first_year, last_year + 1)
-    az = event_azimuths(lat, star_name, years, event, horizon, elevation_m, refract)
-    offset = az - azimuth
-    valid = np.isfinite(offset)
-    if not valid.any():
+    summary = _axis_summary(years, event_azimuths(lat, star_name, years, event, horizon,
+                                                  elevation_m, refract), azimuth)
+    if summary is None:
         return {'found': False, 'reason': 'never_crosses_horizon'}
+    for c in summary['crossings']:
+        c['night'] = night_of_event(lat, lon, c['year'], star_name, event, horizon,
+                                    elevation_m, refract, calendar)
+    return {'found': bool(summary['crossings']), **summary}
 
+
+# ── The Sun ──
+# Its rising point swings through the year between the solstices rather than
+# drifting over the centuries, so it gets two searches: the dates in one year
+# when sunrise (or sunset) falls on the axis, and, since the solstice extremes
+# shift as the obliquity changes, the years in which a solstice sunrise did.
+
+SUN_LIMBS = ('upper', 'centre', 'lower')
+_SUN_SEMIDIAMETER = 0.2666   # mean apparent radius, degrees
+_LIMB_OFFSET = {'upper': -_SUN_SEMIDIAMETER, 'centre': 0.0, 'lower': _SUN_SEMIDIAMETER}
+
+
+def _sun_centre_altitude(horizon, limb, elevation_m, refract):
+    """Geometric altitude of the Sun's centre when the chosen limb touches the visible horizon."""
+    apparent_centre = horizon + _LIMB_OFFSET[limb]
+    return true_altitude(apparent_centre, elevation_m) if refract else apparent_centre
+
+
+def sun_events_in_year(lat, lon, year, event='rise', horizon=0.0, elevation_m=0.0, refract=True,
+                       limb='upper', calendar='gregorian'):
+    """
+    Every sunrise (or sunset) of a year from the full solar ephemeris, by
+    bisection over all days at once: (UT Julian Dates, azimuths in degrees),
+    NaN on days without one (polar day or night). limb is which part of the
+    disc touches the horizon: 'upper' is the first (or last) gleam.
+    """
+    h0 = _sun_centre_altitude(horizon, limb, elevation_m, refract)
+    first = _date_to_jd(year, 1, 1, -lon / 15.0, calendar)
+    midnights = first + np.arange(round(_date_to_jd(year + 1, 1, 1, -lon / 15.0, calendar) - first))
+    rising = event == 'rise'
+    lo = np.full_like(midnights, 0.0 if rising else 12.0)
+    hi = lo + 12.0
+    alt_lo, alt_hi = (sun_altaz(midnights + h / 24.0, lat, lon)[0] for h in (lo, hi))
+    has_event = (alt_lo < h0) & (alt_hi > h0) if rising else (alt_lo > h0) & (alt_hi < h0)
+    for _ in range(20):
+        mid = (lo + hi) / 2.0
+        later = (sun_altaz(midnights + mid / 24.0, lat, lon)[0] < h0) == rising
+        lo = np.where(later, mid, lo)
+        hi = np.where(later, hi, mid)
+    jd = midnights + (lo + hi) / 48.0
+    az = sun_altaz(jd, lat, lon)[1]
+    return np.where(has_event, jd, np.nan), np.where(has_event, az, np.nan)
+
+
+def find_sun_alignment(lat, lon, azimuth, event='rise', year=-2499, horizon=0.0, elevation_m=0.0,
+                       refract=True, limb='upper', first_year=-11999, last_year=2026,
+                       calendar='gregorian'):
+    """
+    When sunrise (or sunset) fell on the axis.
+
+    'dates': the days of the given year on which it did, each with its local
+    time; 'june' and 'december': where the solstice sunrises fell that year;
+    'solstice': which solstice lies on the axis's side of east (or west) and
+    the years in which it fell exactly on the axis, as find_axis_crossings
+    reports for stars, each with that year's solstice sunrise to show.
+    """
+    jd, az = sun_events_in_year(lat, lon, year, event, horizon, elevation_m, refract, limb, calendar)
+    offset = az - azimuth
     with np.errstate(invalid='ignore'):
-        changes = valid[:-1] & valid[1:] & (np.sign(offset[:-1]) != np.sign(offset[1:]))
-    crossings = []
+        changes = (np.isfinite(offset[:-1]) & np.isfinite(offset[1:])
+                   & (np.sign(offset[:-1]) != np.sign(offset[1:])))
+    dates = []
     for i in np.flatnonzero(changes):
-        f = offset[i] / (offset[i] - offset[i + 1])
-        year = int(round(years[i] + f))
-        crossings.append({
-            'year': year,
-            'drift_deg_per_century': round(float(az[i + 1] - az[i]) * 100.0, 3),
-            'night': night_of_event(lat, lon, year, star_name, event, horizon,
-                                    elevation_m, refract, calendar),
-        })
+        k = i if abs(offset[i]) <= abs(offset[i + 1]) else i + 1
+        dates.append({**_local_moment(jd[k], lon, calendar), 'azimuth': round(float(az[k]), 3)})
 
-    k = int(np.nanargmin(np.abs(offset)))
-    latest = int(np.flatnonzero(valid)[-1])
-    curve = [{'year': int(y), 'azimuth': None if np.isnan(a) else round(float(a), 3)}
-             for y, a in zip(years[::_CURVE_STEP_YEARS], az[::_CURVE_STEP_YEARS])]
+    def extreme(k):
+        return {**_local_moment(jd[k], lon, calendar), 'azimuth': round(float(az[k]), 3)}
+
+    if np.isfinite(az).any():
+        northmost, southmost = (int(np.nanargmin(az)), int(np.nanargmax(az))) if event == 'rise' \
+            else (int(np.nanargmax(az)), int(np.nanargmin(az)))
+        june, december = extreme(northmost), extreme(southmost)
+    else:
+        june = december = None
+
+    north = azimuth < 90.0 if event == 'rise' else azimuth > 270.0
+    years = np.arange(first_year, last_year + 1)
+    epochs = np.array([_date_to_jd(int(y), 7, 2, 0.0) for y in years])
+    declination = mean_obliquity(epochs) * (1.0 if north else -1.0)
+    rise = horizon_azimuth(declination, lat, _sun_centre_altitude(horizon, limb, elevation_m, refract))
+    summary = _axis_summary(years, rise if event == 'rise' else 360.0 - rise, azimuth)
+    if summary is not None:
+        for c in summary['crossings']:
+            c_jd, c_az = sun_events_in_year(lat, lon, c['year'], event, horizon, elevation_m,
+                                            refract, limb, calendar)
+            k = int(np.nanargmin(c_az) if north == (event == 'rise') else np.nanargmax(c_az))
+            c['night'] = {**_local_moment(c_jd[k], lon, calendar), 'azimuth': round(float(c_az[k]), 3)}
+
     return {
-        'found': bool(crossings),
-        'crossings': crossings,
-        'closest': {'year': int(years[k]), 'azimuth': round(float(az[k]), 3),
-                    'offset': round(float(offset[k]), 3)},
-        'latest': {'year': int(years[latest]), 'azimuth': round(float(az[latest]), 3)},
-        'curve': curve,
+        'found': bool(dates) or bool(summary and summary['crossings']),
+        'year': year,
+        'dates': dates,
+        'june': june,
+        'december': december,
+        'solstice': {'which': 'june' if north else 'december', **(summary or {'crossings': []})},
     }

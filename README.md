@@ -24,7 +24,7 @@ An interactive web app for reconstructing the ancient night sky at historical si
 - **Heliacal rising finder:** find the exact date a star first appears at dawn after a period of solar conjunction
 - **URL permalink:** every state (site, date, toggles) is encoded in the URL; share or bookmark any view
 - **Gregorian or Julian dates:** read dates the way modern astronomers or historical sources give them
-- **Alignment finder:** for a monument's axis, find the years when a star rose or set exactly along it, then jump to a night when it did
+- **Alignment finder:** for a monument's axis, find the years when a star rose or set exactly along it, or the days (and solstice eras) when the Sun did, then jump to that moment
 
 ![Heliacal rising result for Sirius at Giza](docs/screenshot_heliacal.png)
 
@@ -134,11 +134,15 @@ Positions come from ERFA's analytic theories (`epv00` for the Earth, `plan94` fo
 
 Delta T itself is uncertain for prehistoric dates: published long-term models differ by about two hours at 10,500 BC, enough to move the Moon by about a degree. The Sun and planets move slowly enough that this barely matters for them.
 
+Far from the present, `epv00`'s orbital plane drifts off the true ecliptic, so in 9000 BC its Sun reached only +24.02 / -23.97 degrees of declination where DE441 has +-24.21. The real Sun stays within a few arcseconds of the ecliptic, so the app keeps `epv00`'s position along the ecliptic but places the Sun on the long-term (Vondrák) ecliptic of date. That brings the solstice declinations to +-24.20 and the Sun's total error at 9000 BC from 0.21 to 0.18 degrees, and leaves recent dates unchanged.
+
 ### Alignment finder
 
 Where a star rises on the horizon depends only on the site's latitude and the star's declination: with the star's centre at geometric altitude h0 as it appears, cos A = (sin d - sin phi sin h0) / (cos phi cos h0) gives the rising azimuth A, and it sets at 360 - A. Precession changes every star's declination over the centuries, so its rising point sweeps along the horizon: seen from Göbekli Tepe around 8800 BC, Sirius rose 1.5 degrees further east each century. `src/alignment_finder.py` evaluates this for every year from 12,000 BC to today in one vectorized pass and reports the years in which the rising (or setting) point crossed the axis. h0 is the visible horizon lowered by refraction. For an axis that points at hills the horizon height can be raised, and it matters: each degree of horizon moves the Göbekli Tepe answer by about 210 years and the Teotihuacan one by about 75.
 
 For each crossing it also finds a night that year when the event happens near local midnight, so the sky can be shown with the star on the axis. The tests check the search by asking it for the year whose azimuth it was given, and check each night against the engine directly: the star stands on the horizon there to within 0.01 degrees, at the axis azimuth to within 0.02 degrees. For example, Sirius rose on the 165 degree axis of Göbekli Tepe in 8813 BC, within the site's period of use.
+
+The Sun is different: its rising point swings between the solstices every year rather than drifting over centuries. For the Sun the finder lists the days of the chosen year when sunrise (or sunset) fell on the axis, found from every sunrise of that year, and the range between the two solstices. It also asks which era's solstice sunrise fell exactly on the axis, the method Norman Lockyer used to date Stonehenge in the early 1900s: the solstice declination equals the obliquity of the ecliptic, which shrank from 24.2 degrees around 8000 BC to 23.44 today, so the solstice points move along the horizon. The obliquity matches IAU 2006 at J2000 (84381.406 arcseconds, falling 46.8 per century). These two routes, a closed formula with the obliquity and the year's sunrises from the solar ephemeris, agree on the solstice azimuths to 0.01 degrees from 9000 BC to today, and the tests hold them to it. Which part of the Sun counts as sunrise is a choice: the first gleam (default), the centre or the whole disc.
 
 ### Heliacal rising
 
@@ -168,7 +172,7 @@ GitHub Actions runs the same suite on Ubuntu and Windows for every push (`.githu
 | `GET /api/stars` | `lat, lon, elevation, year, month, day, hour, calendar, refraction, site` | Star, Sun, Moon and planet alt-az positions plus the ecliptic, everything one sky view needs |
 | `GET /api/ecliptic` | same as `/api/stars` | Only the 73 ecliptic great-circle points in alt-az |
 | `GET /api/heliacal` | `lat, lon, year, star, extinction, site` | First heliacal rising date for a star |
-| `GET /api/alignment` | `site` or `lat, lon, elevation`; `star, event, azimuth, horizon, from, to, calendar, refraction` | Years in which a star rose or set along an axis, a night to see each, and the drift curve |
+| `GET /api/alignment` | `site` or `lat, lon, elevation`; `star, event, azimuth, horizon, from, to, calendar, refraction`; for `star=Sun` also `year, limb` | Years in which a star rose or set along an axis, a night to see each, and the drift curve; for the Sun, the days of the year on the axis, the solstice range and the solstice eras on the axis |
 | `GET /api/sites` | none | List of all monument sites with coordinates and orientation notes |
 
 Dates are in the proleptic Gregorian calendar unless `calendar=julian` is given; `/api/stars` returns the same local date in both calendars in `meta.dates`, and `/api/heliacal` answers in the calendar requested. Historians give ancient dates in the Julian calendar (the Sothic rising of Sirius on 19 July), which by 2781 BC runs 23 days ahead of the Gregorian (26 June); the web interface can show either and switching relabels the same moment.
