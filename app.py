@@ -223,8 +223,8 @@ def alignment():
     or 'set', default 'rise'); azimuth (degrees from north through east;
     defaults to the monument's orientation, required with custom coordinates;
     0-180 for a rising, 180-360 for a setting); horizon (apparent altitude of
-    the visible horizon, -2 to 10 degrees, default 0, raise it for distant
-    hills); from and to (astronomical years, default 12,000 BC to the current
+    the visible horizon, -2 to 10 degrees; defaults to the monument's measured
+    horizon where one is known, else 0); from and to (astronomical years, default 12,000 BC to the current
     year). For the Sun also: year (astronomical, default -2499) to list the
     days of that year, and limb ('upper' for the first gleam, the default,
     'centre' or 'lower' for the whole disc on the horizon).
@@ -252,7 +252,8 @@ def alignment():
         raise ApiError(f"Stars and the Sun {event} on the {side} half of the horizon, so the azimuth "
                        f"must be between {low:.0f} and {high:.0f} degrees; got {azimuth:g}")
 
-    horizon = _number('horizon', 0.0, float, -2.0, 10.0)
+    site_horizon = MONUMENTS[site]['horizon_deg'] if site else None
+    horizon = _number('horizon', 0.0 if site_horizon is None else site_horizon, float, -2.0, 10.0)
     first_year = _number('from', -11999, int, *YEAR_RANGE)
     last_year = _number('to', datetime.date.today().year, int, *YEAR_RANGE)
     if last_year <= first_year:
@@ -324,6 +325,8 @@ def sites():
             'lon':            data['lon'],
             'elevation_m':    data['elevation_m'],
             'orientation_az': data['orientation_az'],
+            'horizon_deg':    data['horizon_deg'],
+            'source':         data['source'],
             'note':           data['note'],
         }
         for name, data in MONUMENTS.items()

@@ -406,114 +406,167 @@ STARS = {
 }
 
 
-# Monument orientation azimuths are the compass direction (degrees, 0=N clockwise)
-# of the monument's primary astronomical sightline.  These are the directions you
-# would look from the monument to observe the aligned celestial event.
-# elevation_m is the approximate height above sea level; it sets the air pressure
-# used for atmospheric refraction.
+# Monument fields:
+#   lat, lon        - degrees, of the structure itself
+#   elevation_m     - approximate height above sea level; sets the air pressure for refraction
+#   orientation_az  - compass bearing (degrees, 0 = N, clockwise) of the primary astronomical
+#                     sightline: the direction you look from the monument to see the event
+#   horizon_deg     - altitude of the visible horizon along that sightline, or None if no
+#                     published or derived value exists (the alignment finder then assumes 0)
+#   source          - where the axis (and horizon) come from, or None when the azimuth is only
+#                     approximate and no survey supports it
+#   note            - what the axis is claimed to mark, with the strength of the claim
 MONUMENTS = {
     'Great Pyramid of Giza': {
         'lat': 29.9792, 'lon': 31.1342, 'elevation_m': 60,
         'orientation_az': 0.0,
+        'horizon_deg': None,
+        'source': 'Petrie (1883); Spence (2000), Nature 408, 320-324',
         'note': (
-            'Sides aligned to true north within ~0.05°. '
-            "King's Chamber south shaft targets Orion's Belt at transit (~2450 BC)."
+            'Sides aligned to true north within about 4 arcminutes (Petrie 1883; Spence 2000). '
+            "The King's Chamber southern shaft has been proposed to point at Orion's Belt at "
+            'culmination in the pyramid age (Badawy and Trimble 1964).'
         ),
     },
     'Stonehenge': {
         'lat': 51.1789, 'lon': -1.8262, 'elevation_m': 100,
-        'orientation_az': 51.2,
+        'orientation_az': 49.95,
+        'horizon_deg': 0.6,
+        'source': 'Axis: Thom et al. (1974), 49.95 deg true; Ruggles (1997) best estimate 49.8 +- 0.2 deg. '
+                  'Horizon: about 0.6 deg to the north-east (Ruggles 1997 puts it between 0 and 1 deg)',
         'note': (
-            'Heel stone marks midsummer sunrise (~51.2° in present era). '
-            'The opposing axis (~231°) aligns with midwinter sunset.'
+            'The sarsen horseshoe axis points to midsummer sunrise in the north-east and midwinter '
+            'sunset in the south-west. Ruggles cautions that the close horizon does not support '
+            'alignment claims finer than about one degree.'
         ),
     },
     'Angkor Wat': {
         'lat': 13.4125, 'lon': 103.8670, 'elevation_m': 20,
-        'orientation_az': 90.0,
+        'orientation_az': 90.5,
+        'horizon_deg': None,
+        'source': 'Mollerup (2012), Orientations of Khmer Temples: 0.5 deg from true west; '
+                  'Stencel, Gifford and Morón (1976), Science 193: 0.75 deg',
         'note': (
-            'Main east-west axis unique for a Hindu temple (west-facing). '
-            'Equinox sunrise aligns over the central tower as seen from the western entrance.'
+            'A west-facing temple: seen from the western entrance, the equinox Sun rises over the '
+            'central tower. The axis is turned about half a degree south of true east.'
         ),
     },
     'Pyramid of the Sun (Teotihuacan)': {
         'lat': 19.6925, 'lon': -98.8438, 'elevation_m': 2300,
-        'orientation_az': 285.5,
+        'orientation_az': 285.0 + 28.0 / 60.0,
+        'horizon_deg': 1.0 + 5.0 / 60.0,
+        'source': 'Šprajc (2000), Latin American Antiquity 11(4): azimuth 285 deg 28 min, horizon '
+                  '1 deg 05 min, for an observer at the centre of the base',
         'note': (
-            'West face oriented toward the Pleiades setting point (~285.5°). '
-            'The Avenue of the Dead runs 15.5° east of north.'
+            "The pyramid's west-facing axis marks sunsets on 30 April and 13 August, 260 days apart "
+            'like the Mesoamerican ritual calendar (Šprajc 2000). An older hypothesis linked the '
+            'city grid to the setting Pleiades.'
         ),
     },
     'El Castillo (Chichen Itza)': {
         'lat': 20.6829, 'lon': -88.5686, 'elevation_m': 30,
-        'orientation_az': 25.7,
+        'orientation_az': 291.72,
+        'horizon_deg': None,
+        'source': 'Šprajc and Sánchez Nava (2015), Orientaciones astronómicas en la arquitectura maya '
+                  'de las tierras bajas, as summarised in secondary sources',
         'note': (
-            'NNE staircase axis aligns with Venus at maximum northern elongation. '
-            'Equinox serpent-shadow effect on the north staircase.'
+            'Its west-facing sides line up with sunsets on 20 May and 24 July, 65 days apart. At the '
+            'equinoxes the stepped terraces cast a serpent of light and shadow on the north '
+            'staircase.'
         ),
     },
     'Göbekli Tepe': {
         'lat': 37.2232, 'lon': 38.9225, 'elevation_m': 760,
         'orientation_az': 165.0,
+        'horizon_deg': None,
+        'source': 'Magli (2016), Nexus Network Journal 17 (arXiv:1307.8397); per-enclosure azimuths '
+                  'from secondary summaries; the pillars have not been surveyed with a theodolite',
         'note': (
-            'Oldest known monumental complex (~9600 BC), predating agriculture. '
-            'Enclosure D pillars may have targeted Sirius rising (~165°) at foundation date.'
+            'Oldest known monumental complex (about 9600 BC). Magli proposed that the enclosures '
+            'followed the rising of Sirius as it reappeared in the southern sky: about 165 deg for '
+            'Enclosure C (172 deg for D, 159 deg for B). The hypothesis is disputed.'
         ),
     },
     'Newgrange': {
         'lat': 53.6947, 'lon': -6.4753, 'elevation_m': 60,
-        'orientation_az': 136.4,
+        'orientation_az': 136.05,
+        'horizon_deg': 1.3,
+        'source': 'Axis: centre of the azimuth window 133 deg 42 min to 138 deg 24 min through which '
+                  'sunlight reaches the chamber (Patrick 1974, Nature). Horizon: from the O\'Kellys\' '
+                  'timing of the 1967 solstice sunrise',
         'note': (
-            'Neolithic passage tomb (~3200 BC). The roof-box admits a narrow beam of '
-            'winter solstice sunrise light that illuminates the inner chamber for 17 minutes.'
+            'Neolithic passage tomb (about 3200 BC). The roof-box admits winter solstice sunlight '
+            'down the passage: in 1967 it entered four minutes after sunrise and stayed for '
+            "17 minutes (O'Kelly)."
         ),
     },
     'Avebury': {
-        'lat': 51.4292, 'lon': -1.8536, 'elevation_m': 160,
+        'lat': 51.4286, 'lon': -1.8542, 'elevation_m': 160,
         'orientation_az': 50.0,
+        'horizon_deg': None,
+        'source': None,
         'note': (
-            'Largest megalithic stone circle in the world (~2600 BC). '
-            'The Kennet Avenue leads toward midsummer sunrise (~50°) from the southern entrance.'
+            'Largest stone circle in Britain (about 2600 BC). There is no surveyed astronomical '
+            'axis: the claim that the Cove opens toward midsummer sunrise is empirical and disputed '
+            '(Ruggles). The azimuth here is approximate.'
         ),
     },
     'Carnac Stones': {
-        'lat': 47.5989, 'lon': -2.9539, 'elevation_m': 20,
+        'lat': 47.5972, 'lon': -3.0639, 'elevation_m': 20,
         'orientation_az': 83.0,
+        'horizon_deg': None,
+        'source': None,
         'note': (
-            'Over 3,000 menhirs arranged in parallel rows (~4500-3300 BC). '
-            'The Le Menec alignment runs roughly east (~83°), broadly toward equinox sunrise.'
+            'Over 3,000 standing stones in parallel rows (about 4500 to 3300 BC). Solstice '
+            'alignments were proposed in 1887 (de Cleuziou) and lunar ones by Alexander Thom in the '
+            '1970s; both are disputed (Ruggles 1999). The azimuth here is approximate.'
         ),
     },
     'Mnajdra Temple (Malta)': {
-        'lat': 35.8269, 'lon': 14.4367, 'elevation_m': 60,
-        'orientation_az': 94.0,
+        'lat': 35.8278, 'lon': 14.4375, 'elevation_m': 60,
+        'orientation_az': 92.0 + 30.0 / 60.0 + 11.0 / 3600.0,
+        'horizon_deg': 3.5,
+        'source': 'Micallef (2000), Xjenza 5(1): lower temple axis 92 deg 30 min 11 s at declination 0; '
+                  'the horizon height follows from those two values (another study gives about 4 deg)',
         'note': (
-            'Neolithic temple (~3600 BC), among the oldest free-standing structures on Earth. '
-            'Lower temple doorway precisely frames equinox sunrise; solstice sunlight hits side walls.'
+            'South (lower) temple, about 3000 BC. Its main axis points to the equinox sunrise over '
+            'a raised horizon; at the solstices the sunlight strikes the edges of the inner '
+            'doorway.'
         ),
     },
     'Machu Picchu': {
         'lat': -13.1631, 'lon': -72.5449, 'elevation_m': 2430,
-        'orientation_az': 65.0,
+        'orientation_az': 64.5,
+        'horizon_deg': None,
+        'source': 'Dearborn and White (1983), The Torreón at Machu Picchu as an observatory, '
+                  'Archaeoastronomy 5 (JHA 14)',
         'note': (
-            'Inca citadel (~1450 AD). The Torreon (Temple of the Sun) aligns with the '
-            'June solstice sunrise (~65°). The Intihuatana stone served as a solar calendar.'
+            'Inca citadel (about 1450 AD). The Torreón window faces the June solstice sunrise over '
+            'high mountains; set the horizon height before searching, since a flat horizon gives '
+            'the wrong dates.'
         ),
     },
     'Tiwanaku (Kalasasaya)': {
         'lat': -16.5544, 'lon': -68.6742, 'elevation_m': 3850,
         'orientation_az': 89.0,
+        'horizon_deg': None,
+        'source': None,
         'note': (
-            'Pre-Inca ceremonial center (~500-900 AD, possibly older). '
-            'The eastern gate of the Kalasasaya temple is precisely aligned with the equinox sunrise.'
+            'Kalasasaya platform (about 500 to 900 AD) with walls close to the cardinal directions. '
+            'The popular equinox-sunrise claim is not an established survey result; Benitez (2004) '
+            "proposed that the western wall's pillars marked sunsets through the year. The azimuth "
+            'here is approximate.'
         ),
     },
     'Baalbek (Temple of Jupiter)': {
-        'lat': 34.2036, 'lon': 36.2100, 'elevation_m': 1150,
-        'orientation_az': 62.0,
+        'lat': 34.00667, 'lon': 36.20333, 'elevation_m': 1150,
+        'orientation_az': 74.5,
+        'horizon_deg': 4.0 + 16.0 / 60.0,
+        'source': 'Archaeoastronomy of the Temples of the Bekaa Valley, Heritage 4 (2021), '
+                  'doi:10.3390/heritage4030084; an earlier study gives 75.5 deg (arXiv:1606.05888)',
         'note': (
-            'Massive Roman temple complex built on a far older Phoenician foundation. '
-            'The temple axis (~62°) aligns northeast; the monumental podium stones remain unexplained.'
+            'Roman temple of Jupiter Heliopolitanus. Its axis faces sunrise on about 30 April and '
+            '12 August, not a solstice, possibly tied to the heliacal rising of the Pleiades.'
         ),
     },
 }

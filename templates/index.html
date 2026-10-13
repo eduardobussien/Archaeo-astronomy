@@ -188,6 +188,13 @@
       border-left: 3px solid #f0c040;
       border-radius: 0 4px 4px 0;
     }
+    .monument-source {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid #21262d;
+      font-size: 0.66rem;
+      color: #6e7681;
+    }
 
     .sidebar-footer {
       margin-top: auto;
@@ -829,10 +836,10 @@
       year: -2699, month: 3, day: 20, hour: 22,
     },
     {
-      title: 'Pleiades at Teotihuacan',
-      desc:  "Pleiades sets at the pyramid's exact orientation azimuth, 150 AD",
+      title: 'Sunset Axis at Teotihuacan',
+      desc:  "The Sun sets along the Pyramid of the Sun's axis on 30 April, opening a 260-day count, 150 AD (Šprajc 2000)",
       site:  'Pyramid of the Sun (Teotihuacan)',
-      year: 150, month: 5, day: 17, hour: 5,
+      year: 150, month: 4, day: 30, hour: 18.22,
     },
     {
       title: 'Orion at Stonehenge',
@@ -860,9 +867,9 @@
     },
     {
       title: 'Malta Equinox Sunrise',
-      desc:  'The equinox Sun climbs along the Mnajdra temple doorway axis, 3600 BC',
+      desc:  'The equinox Sun rises exactly on the lower temple axis over the raised horizon, 3600 BC',
       site:  'Mnajdra Temple (Malta)',
-      year: -3599, month: 3, day: 20, hour: 6.5,
+      year: -3599, month: 3, day: 21, hour: 6.34,
     },
   ];
 
@@ -914,16 +921,23 @@
     const noteEl = document.getElementById('monument-note');
 
     customLoc.style.display = site === '' ? 'block' : 'none';
-    const note = SITES[site] && SITES[site].note;
-    noteEl.textContent = note || '';
-    noteEl.style.display = note ? 'block' : 'none';
+    const info = SITES[site];
+    noteEl.replaceChildren();
+    noteEl.style.display = info ? 'block' : 'none';
+    if (!info) return;
 
-    // The alignment finder starts from the monument's own axis.
-    if (SITES[site]) {
-      const az = SITES[site].orientation_az;
-      document.getElementById('af-azimuth').value = az;
-      document.getElementById('af-event').value = az > 180 ? 'set' : 'rise';
-    }
+    const source = document.createElement('div');
+    source.className = 'monument-source';
+    source.textContent = info.source
+      ? `Source: ${info.source}`
+      : 'Approximate axis: no published survey supports this azimuth.';
+    noteEl.append(info.note, source);
+
+    // The alignment finder starts from the monument's own axis and measured horizon.
+    const az = info.orientation_az;
+    document.getElementById('af-azimuth').value = +az.toFixed(2);
+    document.getElementById('af-event').value = az > 180 ? 'set' : 'rise';
+    document.getElementById('af-horizon').value = info.horizon_deg === null ? 0 : +info.horizon_deg.toFixed(2);
   }
   document.getElementById('site-select').addEventListener('change', onSiteChange);
 

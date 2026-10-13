@@ -96,6 +96,7 @@ tests/
   test_refraction.py    Refraction: horizon value, ERFA model, standard atmosphere
   test_visibility.py    Heliacal visibility: Schaefer and IMCCE criteria for Sirius
   test_alignment_finder.py  Axis crossings, checked against the engine
+  test_monuments.py     Monument data against the publications it comes from
 requirements.txt        Packages the app needs
 requirements-dev.txt    Plus the test tools (astropy, pytest)
 ```
@@ -143,6 +144,23 @@ Where a star rises on the horizon depends only on the site's latitude and the st
 For each crossing it also finds a night that year when the event happens near local midnight, so the sky can be shown with the star on the axis. The tests check the search by asking it for the year whose azimuth it was given, and check each night against the engine directly: the star stands on the horizon there to within 0.01 degrees, at the axis azimuth to within 0.02 degrees. For example, Sirius rose on the 165 degree axis of Göbekli Tepe in 8813 BC, within the site's period of use.
 
 The Sun is different: its rising point swings between the solstices every year rather than drifting over centuries. For the Sun the finder lists the days of the chosen year when sunrise (or sunset) fell on the axis, found from every sunrise of that year, and the range between the two solstices. It also asks which era's solstice sunrise fell exactly on the axis, the method Norman Lockyer used to date Stonehenge in the early 1900s: the solstice declination equals the obliquity of the ecliptic, which shrank from 24.2 degrees around 8000 BC to 23.44 today, so the solstice points move along the horizon. The obliquity matches IAU 2006 at J2000 (84381.406 arcseconds, falling 46.8 per century). These two routes, a closed formula with the obliquity and the year's sunrises from the solar ephemeris, agree on the solstice azimuths to 0.01 degrees from 9000 BC to today, and the tests hold them to it. Which part of the Sun counts as sunrise is a choice: the first gleam (default), the centre or the whole disc.
+
+### Monument data
+
+Every monument in `src/data.py` carries its axis azimuth, the height of the visible horizon along it where one is known, and the source of both. Where no survey supports an axis (Avebury, Carnac, Tiwanaku) the azimuth is marked approximate, in the data and in the app. The alignment finder uses each site's measured horizon by default.
+
+Checking the original values against the literature found and fixed several errors: Stonehenge's axis was a flat-horizon sunset calculation (51.2 degrees) rather than the surveyed 49.95 degrees (Thom et al. 1974); Baalbek's azimuth was 12 degrees off and its latitude 0.2 degrees off; Carnac's coordinates pointed about 8 km away; and several notes described the wrong building or an unsupported claim.
+
+With the corrected data the engine reproduces published results, which the tests in `tests/test_monuments.py` hold it to:
+
+| Site | Published | This app |
+|---|---|---|
+| Teotihuacan, Pyramid of the Sun (Šprajc 2000) | sunsets on 30 April and 13 August | 30 April, 13 August |
+| Chichén Itzá, El Castillo (Šprajc and Sánchez Nava 2015) | sunsets on 20 May and 24 July | 20 May, 24 July |
+| Baalbek, Temple of Jupiter (Heritage 2021) | sunrises on about 30 April and 12 August | 1 May, 13 August |
+| Mnajdra, lower temple (Micallef 2000) | equinox sunrise | 22 March, 23 September |
+| Newgrange (Patrick 1974; O'Kelly 1967 timing) | light in the chamber for azimuths 133.7 to 138.4 degrees | the timed 1967 beam ran from 134.2 to 137.6 degrees |
+| Stonehenge (sarsen.org, Vondrák obliquity) | midsummer sunrise 49.6 degrees in 2500 BC, disc centre, level horizon | 49.59 degrees |
 
 ### Heliacal rising
 

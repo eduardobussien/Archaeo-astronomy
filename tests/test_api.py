@@ -139,8 +139,8 @@ def test_alignment_uses_the_monument_axis_by_default():
 def test_sun_alignment_lists_dates_and_solstice_range():
     body = _get('/api/alignment', site='Stonehenge', star='Sun', year='-2499').get_json()
     assert body['star'] == 'Sun' and body['limb'] == 'upper'
-    assert [d['month'] for d in body['dates']] == [6, 7]
-    assert body['june']['azimuth'] < 51.2 < body['december']['azimuth']
+    assert body['azimuth'] == 49.95 and body['horizon'] == 0.6      # the surveyed axis and horizon
+    assert body['june']['azimuth'] < body['azimuth'] < body['december']['azimuth']
     assert body['solstice']['which'] == 'june'
 
 
