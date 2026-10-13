@@ -147,7 +147,7 @@ The Sun is different: its rising point swings between the solstices every year r
 
 ### Monument data
 
-Every monument in `src/data.py` carries its axis azimuth, the height of the visible horizon along it where one is known, and the source of both. Where no survey supports an axis (Avebury, Carnac, Tiwanaku) the azimuth is marked approximate, in the data and in the app. The alignment finder uses each site's measured horizon by default.
+Every monument in `src/data.py` carries its axis azimuth, the height of the visible horizon along it where one is known, and the source of both. Where no survey supports an axis (Avebury, Carnac, Tiwanaku) the azimuth is marked approximate, in the data and in the app. The alignment finder uses each site's measured horizon by default. Every source, for the monuments and for the engine, is listed with its strength in [docs/SOURCES.md](docs/SOURCES.md).
 
 Checking the original values against the literature found and fixed several errors: Stonehenge's axis was a flat-horizon sunset calculation (51.2 degrees) rather than the surveyed 49.95 degrees (Thom et al. 1974); Baalbek's azimuth was 12 degrees off and its latitude 0.2 degrees off; Carnac's coordinates pointed about 8 km away; and several notes described the wrong building or an unsupported claim.
 
