@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import astropy.units as u
 import erfa
 import numpy as np
@@ -190,6 +193,32 @@ def test_sun_matches_de441_through_the_year_in_every_era(year):
     assert sep.max() < tolerance, f'{sep.max():.4f} deg'
     # Declination sets where the Sun rises on the horizon; it stays far closer than the total.
     assert np.degrees(np.abs(dec - ref[:, 1])).max() < 0.1
+
+
+# The same comparison for the Moon and planets; JPL's values are in data/de441_moon_planets.json.
+# Tolerances (degrees) per era, 9998 BC to AD 2000, are again about 1.2 times the measured error.
+# The analytic theories are tuned to recent millennia, so before about 5000 BC the Moon, Jupiter
+# and Saturn drift by 1 to 2 degrees.
+BODIES_DE441 = json.loads((Path(__file__).parent / 'data' / 'de441_moon_planets.json').read_text())
+BODY_TOLERANCES = {
+    'Moon': (2.2, 2.1, 1.7, 1.3, 0.7, 0.54, 0.38, 0.2, 0.098, 0.044, 0.026, 0.0092, 0.008),
+    'Mercury': (0.57, 0.61, 0.46, 0.32, 0.2, 0.13, 0.078, 0.039, 0.019, 0.0093, 0.0037, 0.002, 0.002),
+    'Venus': (0.62, 0.72, 0.19, 0.3, 0.086, 0.12, 0.033, 0.072, 0.011, 0.023, 0.002, 0.0041, 0.002),
+    'Mars': (0.22, 0.42, 0.12, 0.14, 0.22, 0.045, 0.034, 0.047, 0.0076, 0.0071, 0.011, 0.0092, 0.002),
+    'Jupiter': (1.5, 1.1, 0.28, 0.92, 0.23, 0.12, 0.3, 0.082, 0.089, 0.032, 0.014, 0.002, 0.018),
+    'Saturn': (1.8, 0.13, 0.92, 1.1, 0.96, 0.84, 0.47, 0.23, 0.091, 0.13, 0.066, 0.0089, 0.023),
+}
+
+
+@pytest.mark.parametrize('era', range(len(BODIES_DE441['years'])))
+@pytest.mark.parametrize('body', sorted(BODY_TOLERANCES))
+def test_moon_and_planets_match_de441_in_every_era(body, era):
+    year = BODIES_DE441['years'][era]
+    jd = np.array([_date_to_jd(year, month, 1, 0.0) for month in range(1, 13)])
+    ra, dec = erfa.c2s(geocentric_positions(jd)[body])
+    ref = np.radians(BODIES_DE441['bodies'][body][era])
+    sep = np.degrees(erfa.seps(ra, dec, ref[:, 0], ref[:, 1]))
+    assert sep.max() < BODY_TOLERANCES[body][era], f'{year}: {sep.max():.4f} deg'
 
 
 def test_bodies_available_at_10500_bc():

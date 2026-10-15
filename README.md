@@ -97,6 +97,9 @@ tests/
   test_visibility.py    Heliacal visibility: Schaefer and IMCCE criteria for Sirius
   test_alignment_finder.py  Axis crossings, checked against the engine
   test_monuments.py     Monument data against the publications it comes from
+  data/                 JPL DE441 reference positions used by the tests
+docs/
+  SOURCES.md            Every source behind the engine and the monument data
 requirements.txt        Packages the app needs
 requirements-dev.txt    Plus the test tools (astropy, pytest)
 ```
@@ -124,18 +127,22 @@ The model is checked in `tests/` against astropy near J2000 (under 1 arcmin), ag
 
 The Earth's rotation has slowed over the millennia, so clock time (UT1, which follows the rotation) drifts away from the uniform time (TT) that orbital theories need. The difference, Delta T, is about 16.6 hours at 2500 BC. `src/timescales.py` uses the Espenak & Meeus (2006) expressions based on Morrison & Stephenson (2004); ignoring it would put the Moon about 8 degrees out of place at 2500 BC.
 
-Positions come from ERFA's analytic theories (`epv00` for the Earth, `plan94` for the planets, `moon98` for the Moon), are rotated into the local sky by the same engine as the stars, and include the Moon's parallax. Measured against JPL's DE441 ephemeris at the same instant, the largest error across all seven bodies is:
+Positions come from ERFA's analytic theories (`epv00` for the Earth, `plan94` for the planets, `moon98` for the Moon), are rotated into the local sky by the same engine as the stars, and include the Moon's parallax. Measured against JPL's DE441 ephemeris on the first of every month (at the same instant of uniform time), the largest error in each era, in degrees, is:
 
-| Epoch | Largest error |
-|---|---|
-| 1000 BC | 0.09 degrees |
-| 3000 BC | 0.18 degrees |
-| 4000 BC | 0.35 degrees |
-| 9000 BC | 1.3 degrees (Moon) |
+| Era | Sun | Moon | Mercury | Venus | Mars | Jupiter | Saturn |
+|---|---|---|---|---|---|---|---|
+| 9998 BC | 0.30 | 1.75 | 0.47 | 0.51 | 0.18 | 1.23 | 1.47 |
+| 7001 BC | 0.13 | 1.02 | 0.26 | 0.24 | 0.11 | 0.76 | 0.91 |
+| 5001 BC | 0.06 | 0.44 | 0.11 | 0.10 | 0.04 | 0.10 | 0.70 |
+| 3001 BC | 0.02 | 0.17 | 0.03 | 0.06 | 0.04 | 0.07 | 0.19 |
+| 1001 BC | 0.005 | 0.04 | 0.01 | 0.02 | 0.01 | 0.03 | 0.11 |
+| AD 1 to today | 0.002 | 0.02 | 0.003 | 0.003 | 0.009 | 0.015 | 0.055 |
+
+The Moon's disc is about 0.5 degrees wide. From about 3000 BC on, every body is within 0.2 degrees. Earlier, the analytic theories (tuned to recent millennia) let the Moon, Jupiter and Saturn drift by 1 to 2 degrees. The Sun's declination, which sets where it rises, stays within 0.1 degrees in every era. Horizons provides the Sun and planets only from 9999 BC, so the app's last two millennia (to 12,000 BC) are not checked against it. The tests check every era in the table, and those between, with JPL's values in `tests/data/de441_moon_planets.json`.
 
 Delta T itself is uncertain for prehistoric dates: published long-term models differ by about two hours at 10,500 BC, enough to move the Moon by about a degree. The Sun and planets move slowly enough that this barely matters for them.
 
-Far from the present, `epv00`'s orbital plane drifts off the true ecliptic, so in 9000 BC its Sun reached only +24.02 / -23.97 degrees of declination where DE441 has +-24.21. The real Sun stays within a few arcseconds of the ecliptic, so the app keeps `epv00`'s position along the ecliptic but places the Sun on the long-term (Vondrák) ecliptic of date. That brings the solstice declinations to +-24.20 and the Sun's total error at 9000 BC from 0.21 to 0.18 degrees, and leaves recent dates unchanged.
+Far from the present, `epv00`'s orbital plane drifts off the true ecliptic, so in 9000 BC its Sun reached only +24.02 / -23.97 degrees of declination where DE441 has +-24.21. The real Sun stays within a few arcseconds of the ecliptic, so the app keeps `epv00`'s position along the ecliptic but places the Sun on the long-term (Vondrák) ecliptic of date. That brings the solstice declinations to +-24.20 and the Sun's total error at a 9000 BC test date from 0.21 to 0.18 degrees, and leaves recent dates unchanged.
 
 ### Alignment finder
 
