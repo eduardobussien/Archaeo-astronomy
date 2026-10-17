@@ -1,3 +1,7 @@
+import json
+from pathlib import Path
+
+import erfa
 import numpy as np
 import pytest
 
@@ -96,9 +100,31 @@ def test_reported_sunrises_put_the_first_gleam_on_the_axis():
     for d in result['dates']:
         jd = _date_to_jd(-2499, d['month'], d['day'], d['hour'] - m['lon'] / 15.0)
         alt, az = sun_altaz(jd, m['lat'], m['lon'])
-        upper_limb = float(apparent_altitude(alt, m['elevation_m'])) + 0.2666
+        upper_limb = float(apparent_altitude(alt + 0.2666, m['elevation_m']))  # refract the limb itself
         assert abs(upper_limb) < 0.01
         assert abs(float(az) - m['orientation_az']) < 0.5     # nearest whole day
+
+
+# Sunrise and sunset in UT from the US Naval Observatory for 2025, from 59 N to 46 S; the times
+# are rounded to the minute. USNO takes 34' of refraction at the horizon where this app's
+# Saemundsson formula gives 34.4', worth a few seconds.
+USNO = json.loads((Path(__file__).parent / 'data' / 'usno_sun_2025.json').read_text())
+
+
+@pytest.mark.parametrize('event', ['rise', 'set'])
+@pytest.mark.parametrize('site', sorted(USNO['sites']))
+def test_sunrise_and_sunset_times_match_the_us_naval_observatory(site, event):
+    s = USNO['sites'][site]
+    jd, _ = sun_events_in_year(s['lat'], s['lon'], USNO['year'], event)
+    jd = jd[np.isfinite(jd)]
+    _, month, day, fraction = erfa.jd2cal(jd, 0.0)
+    for date, times in s['rise_set'].items():
+        m, d = map(int, date.split('-'))
+        hh, mm = map(int, times[0 if event == 'rise' else 1].split(':'))
+        (k,) = np.flatnonzero((month == m) & (day == d))
+        # 30 s of rounding, plus a margin. Refracting the Sun's centre instead of its limb
+        # put sunrise up to 74 s early here.
+        assert abs(fraction[k] * 86400.0 - (hh * 3600 + mm * 60)) < 45.0, date
 
 
 def test_june_sunrise_is_north_of_east_in_the_southern_hemisphere_too():

@@ -95,9 +95,9 @@ tests/
   test_api.py           Endpoint responses and input validation
   test_refraction.py    Refraction: horizon value, ERFA model, standard atmosphere
   test_visibility.py    Heliacal visibility: Schaefer and IMCCE criteria for Sirius
-  test_alignment_finder.py  Axis crossings, checked against the engine
+  test_alignment_finder.py  Axis crossings, checked against the engine; sunrise times: USNO
   test_monuments.py     Monument data against the publications it comes from
-  data/                 JPL DE441 reference positions used by the tests
+  data/                 Reference values used by the tests (JPL DE441, US Naval Observatory)
 docs/
   SOURCES.md            Every source behind the engine and the monument data
 requirements.txt        Packages the app needs
@@ -150,7 +150,7 @@ Where a star rises on the horizon depends only on the site's latitude and the st
 
 For each crossing it also finds a night that year when the event happens near local midnight, so the sky can be shown with the star on the axis. The tests check the search by asking it for the year whose azimuth it was given, and check each night against the engine directly: the star stands on the horizon there to within 0.01 degrees, at the axis azimuth to within 0.02 degrees. For example, Sirius rose on the 165 degree axis of Göbekli Tepe in 8813 BC, within the site's period of use.
 
-The Sun is different: its rising point swings between the solstices every year rather than drifting over centuries. For the Sun the finder lists the days of the chosen year when sunrise (or sunset) fell on the axis, found from every sunrise of that year, and the range between the two solstices. It also asks which era's solstice sunrise fell exactly on the axis, the method Norman Lockyer used to date Stonehenge in the early 1900s: the solstice declination equals the obliquity of the ecliptic, which shrank from 24.2 degrees around 8000 BC to 23.44 today, so the solstice points move along the horizon. The obliquity matches IAU 2006 at J2000 (84381.406 arcseconds, falling 46.8 per century). These two routes, a closed formula with the obliquity and the year's sunrises from the solar ephemeris, agree on the solstice azimuths to 0.01 degrees from 9000 BC to today, and the tests hold them to it. Which part of the Sun counts as sunrise is a choice: the first gleam (default), the centre or the whole disc.
+The Sun is different: its rising point swings between the solstices every year rather than drifting over centuries. For the Sun the finder lists the days of the chosen year when sunrise (or sunset) fell on the axis, found from every sunrise of that year, and the range between the two solstices. It also asks which era's solstice sunrise fell exactly on the axis, the method Norman Lockyer used to date Stonehenge in the early 1900s: the solstice declination equals the obliquity of the ecliptic, which shrank from 24.2 degrees around 8000 BC to 23.44 today, so the solstice points move along the horizon. The obliquity matches IAU 2006 at J2000 (84381.406 arcseconds, falling 46.8 per century). These two routes, a closed formula with the obliquity and the year's sunrises from the solar ephemeris, agree on the solstice azimuths to 0.01 degrees from 9000 BC to today, and the tests hold them to it. Which part of the Sun counts as sunrise is a choice: the first gleam (default), the centre or the whole disc. Refraction is applied to the edge of the disc where it meets the horizon, and the centre lies one solar radius from it. With that, the app's sunrise and sunset times for 2025 agree with the US Naval Observatory's at ten sites from 59 degrees N to 46 degrees S, at every season, to within their rounding to the minute (160 times, none more than 33 seconds apart). Refracting the centre instead had put sunrise up to 74 seconds early.
 
 ### Monument data
 

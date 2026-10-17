@@ -156,9 +156,15 @@ _LIMB_OFFSET = {'upper': -_SUN_SEMIDIAMETER, 'centre': 0.0, 'lower': _SUN_SEMIDI
 
 
 def _sun_centre_altitude(horizon, limb, elevation_m, refract):
-    """Geometric altitude of the Sun's centre when the chosen limb touches the visible horizon."""
-    apparent_centre = horizon + _LIMB_OFFSET[limb]
-    return true_altitude(apparent_centre, elevation_m) if refract else apparent_centre
+    """
+    Geometric altitude of the Sun's centre when the chosen limb touches the
+    visible horizon. Refraction applies where the limb is seen, at the horizon;
+    the centre lies one semidiameter from the limb's geometric position. (Refracting
+    the centre instead, 16' lower where refraction is stronger, put first gleam
+    0.055 deg too low and sunrise about 20 s early.)
+    """
+    limb_altitude = true_altitude(horizon, elevation_m) if refract else horizon
+    return limb_altitude + _LIMB_OFFSET[limb]
 
 
 def sun_events_in_year(lat, lon, year, event='rise', horizon=0.0, elevation_m=0.0, refract=True,
