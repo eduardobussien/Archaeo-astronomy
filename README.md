@@ -140,9 +140,31 @@ Positions come from ERFA's analytic theories (`epv00` for the Earth, `plan94` fo
 
 The Moon's disc is about 0.5 degrees wide. From about 3000 BC on, every body is within 0.2 degrees. Earlier, the analytic theories (tuned to recent millennia) let the Moon, Jupiter and Saturn drift by 1 to 2 degrees. The Sun's declination, which sets where it rises, stays within 0.1 degrees in every era. Horizons provides the Sun and planets only from 9999 BC, so the app's last two millennia (to 12,000 BC) are not checked against it. The tests check every era in the table, and those between, with JPL's values in `tests/data/de441_moon_planets.json`.
 
-Delta T itself is uncertain for prehistoric dates: published long-term models differ by about two hours at 10,500 BC, enough to move the Moon by about a degree. The Sun and planets move slowly enough that this barely matters for them.
+Delta T itself is measured only from 720 BC, the earliest dated eclipse records; before that it is extrapolated, and uncertain by hours (see [What the Earth's rotation does and does not affect](#what-the-earths-rotation-does-and-does-not-affect)).
 
 Far from the present, `epv00`'s orbital plane drifts off the true ecliptic, so in 9000 BC its Sun reached only +24.02 / -23.97 degrees of declination where DE441 has +-24.21. The real Sun stays within a few arcseconds of the ecliptic, so the app keeps `epv00`'s position along the ecliptic but places the Sun on the long-term (Vondrák) ecliptic of date. That brings the solstice declinations to +-24.20 and the Sun's total error at a 9000 BC test date from 0.21 to 0.18 degrees, and leaves recent dates unchanged.
+
+### What the Earth's rotation does and does not affect
+
+The app's clock is local solar time, which follows the Earth's rotation: in any era, local noon is when the Sun crosses the meridian. The stars follow the same rotation, so where a star stands at a local time does not depend on Delta T at all. The Sun, Moon and planets move along their orbits in uniform time, and to place them at a local time the app adds Delta T. Before the earliest dated eclipse records (Babylonian, from 720 BC) Delta T is not measured but extrapolated, and its uncertainty grows quickly:
+
+| Era | Uncertainty in Delta T | The Sun moved by | The Moon moved by |
+|---|---|---|---|
+| 1000 BC | 10 minutes | 0.007 degrees | 0.1 degrees |
+| 2500 BC | 25 minutes to 1.7 hours | 0.02 to 0.07 | 0.2 to 0.9 |
+| 4000 BC | 45 minutes to 4.5 hours | 0.03 to 0.19 | 0.4 to 2.5 |
+| 6000 BC | 1.4 to 10 hours | 0.06 to 0.4 | 0.8 to 5.7 |
+| 10,000 BC | 3 to 29 hours | 0.13 to 1.2 | 1.7 to 16 |
+
+The lower values follow Morrison & Stephenson (2004), whose standard error is 0.8 t^2 seconds, with t in centuries from 1820. The higher ones follow Huber's (2000) model, which treats changes in the Earth's rotation as a random walk; [NASA tabulates both](https://eclipse.gsfc.nasa.gov/SEhelp/uncertainty2004.html) back to 4000 BC. The rows for 6000 and 10,000 BC extend the same formulas beyond the range they were published for, so they are only indicative.
+
+What that means for the answers the app gives:
+
+- **Not affected:** star positions, and where and when stars rose and set, in every era; the years the alignment finder gives for stars; the solstice sunrise azimuths, and the era in which a solstice sunrise fell on an axis, which depend only on the tilt of the Earth's axis.
+- **Little affected:** the days of the year on which the Sun rose on an axis, and heliacal rising dates. Until 4000 BC the Sun's place in its yearly path is uncertain by at most a fifth of a degree (about five hours of its motion). By 10,000 BC the cautious estimate reaches about a degree, so a date could be a day out.
+- **Affected:** the Moon at a given local time. Under the cautious estimate it is uncertain by about a degree in 2500 BC and by several degrees before 5000 BC, and in deep prehistory the night of a full moon cannot be fixed. The limits of the Moon's monthly swing north and south, which lunar standstill studies use, come from the geometry of its orbit rather than from timing, and are not affected. The planets move at most a sixth as fast as the Moon across the sky and are affected correspondingly less.
+
+The uncertainty in Delta T is larger than the error of the Moon theory itself (1.75 degrees at 10,000 BC, from the table above), so a more precise ephemeris would not make the prehistoric Moon much more certain.
 
 ### Alignment finder
 
