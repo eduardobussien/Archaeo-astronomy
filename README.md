@@ -164,6 +164,8 @@ What that means for the answers the app gives:
 - **Little affected:** the days of the year on which the Sun rose on an axis, and heliacal rising dates. Until 4000 BC the Sun's place in its yearly path is uncertain by at most a fifth of a degree (about five hours of its motion). By 10,000 BC the cautious estimate reaches about a degree, so a date could be a day out.
 - **Affected:** the Moon at a given local time. Under the cautious estimate it is uncertain by about a degree in 2500 BC and by several degrees before 5000 BC, and in deep prehistory the night of a full moon cannot be fixed. The limits of the Moon's monthly swing north and south, which lunar standstill studies use, come from the geometry of its orbit rather than from timing, and are not affected. The planets move at most a sixth as fast as the Moon across the sky and are affected correspondingly less.
 
+`/api/stars` reports this for every request in `meta.delta_t`: Delta T in seconds, its uncertainty under both estimates, how far that moves the Moon, and whether the date falls in the measured period (from 720 BC). Before 720 BC the web interface adds the cautious figure to the Moon's tooltip and info card.
+
 The uncertainty in Delta T is larger than the error of the Moon theory itself (1.75 degrees at 10,000 BC, from the table above), so a more precise ephemeris would not make the prehistoric Moon much more certain.
 
 ### Alignment finder

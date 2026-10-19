@@ -44,3 +44,37 @@ def delta_t(year):
 def ut1_to_tt(jd_ut1):
     """Terrestrial Time Julian Date for a UT1 Julian Date."""
     return jd_ut1 + delta_t(erfa.epj(jd_ut1, 0.0)) / 86400.0
+
+
+# The earliest dated eclipse records (Stephenson, Morrison & Hohenkerk 2016); before this
+# year (astronomical numbering, 720 BC) Delta T is extrapolated rather than measured.
+FIRST_MEASURED_YEAR = -719
+_MOON_DEG_PER_DAY = 13.176        # the Moon's mean motion across the sky
+
+
+def delta_t_uncertainty(year):
+    """
+    Standard error of Delta T in seconds, as (optimistic, cautious):
+    Morrison & Stephenson (2004), 0.8 t^2 with t in centuries from 1820, and
+    Huber's (2000) random walk calibrated at 500 BC, as NASA tabulates them.
+    Huber's model applies before 500 BC; the cautious value is never below
+    the optimistic one. The formula was fitted from 1000 BC to AD 1200; after
+    that, telescopic and then atomic timing make the true uncertainty smaller
+    still, so for modern dates it is an overestimate of a few seconds.
+    """
+    optimistic = 0.8 * ((year - 1820.0) / 100.0) ** 2
+    n = -500.0 - year
+    huber = 365.25 * n * np.sqrt(n * 0.058 / 3.0 * (1.0 + n / 2500.0)) / 1000.0 if n > 0 else 0.0
+    return float(optimistic), float(max(optimistic, huber))
+
+
+def delta_t_report(jd_ut1):
+    """Delta T at a UT1 Julian Date, its uncertainty, and how far that uncertainty moves the Moon."""
+    year = float(erfa.epj(jd_ut1, 0.0))
+    low, high = delta_t_uncertainty(year)
+    return {
+        'seconds': round(float(delta_t(year)), 1),
+        'uncertainty_s': [round(low, 1), round(high, 1)],
+        'moon_uncertainty_deg': [round(s / 86400.0 * _MOON_DEG_PER_DAY, 3) for s in (low, high)],
+        'measured': year >= FIRST_MEASURED_YEAR,
+    }

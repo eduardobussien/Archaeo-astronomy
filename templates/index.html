@@ -1465,7 +1465,16 @@
     'Saturn':  'The slowest naked-eye planet, 29 years per orbit. Ancient cultures across the world saw it as a symbol of time and fate.',
   };
 
-  function makePlanetTraces(planets, showLabels, showPlanets) {
+  // Before 720 BC the Earth's rotation (Delta T) is extrapolated, not measured, and the
+  // Moon moves fast enough for that to matter; the cautious estimate is shown.
+  function moonCaveat(meta) {
+    const dt = meta && meta.delta_t;
+    if (!dt || dt.measured) return '';
+    return `Position uncertain by up to ${dt.moon_uncertainty_deg[1].toFixed(1)}° in this era: ` +
+           "the Earth's rotation is not measured before 720 BC.";
+  }
+
+  function makePlanetTraces(planets, showLabels, showPlanets, moonNote) {
     if (!showPlanets || !planets || !Object.keys(planets).length) return [];
     const visible = Object.entries(planets).filter(([, p]) =>  p.visible);
     const hidden  = Object.entries(planets).filter(([, p]) => !p.visible);
@@ -1485,10 +1494,13 @@
         opacity,
         line: { color: 'rgba(255,255,255,0.4)', width: 1 },
       },
-      customdata: list.map(([name, p]) => [
-        p.altitude.toFixed(1), p.azimuth.toFixed(1), 'Planet', '',
-      ]),
-      hovertemplate: '<b>%{text}</b><br>Planet<br>Alt: %{customdata[0]}°  Az: %{customdata[1]}°<extra></extra>',
+      customdata: list.map(([name, p]) => {
+        const caveat = name === 'Moon' ? moonNote : '';
+        return [p.altitude.toFixed(1), p.azimuth.toFixed(1), 'Planet', '', caveat,
+                caveat ? `<br><i>${caveat.replace(': ', ':<br>')}</i>` : ''];
+      }),
+      hovertemplate: '<b>%{text}</b><br>Planet<br>Alt: %{customdata[0]}°  Az: %{customdata[1]}°' +
+                     '%{customdata[5]}<extra></extra>',
       showlegend: false,
     });
 
@@ -1807,7 +1819,7 @@
     const traces = [
       ...makeEclipticTrace(eclipticOn ? eclipticData : null),
       ...makeConstellationLines(data.stars, magLimit),
-      ...makePlanetTraces(data.planets || {}, labelsOn, planetsOn),
+      ...makePlanetTraces(data.planets || {}, labelsOn, planetsOn, moonCaveat(data.meta)),
       makeTrace(visible, 0.95),
       { ...makeTrace(hidden, 0.18), mode: 'markers' },
     ];
@@ -1924,7 +1936,8 @@
         document.getElementById('sc-mag').textContent   = isPlanet ? '' : mag;
 
         const noteEl = document.getElementById('sc-note');
-        const note   = isPlanet ? (PLANET_NOTES[name] || '') : (STAR_NOTES[name] || '');
+        const note   = isPlanet ? [PLANET_NOTES[name], cd[4]].filter(Boolean).join(' ')
+                                : (STAR_NOTES[name] || '');
         noteEl.textContent    = note;
         noteEl.style.display  = note ? 'block' : 'none';
 

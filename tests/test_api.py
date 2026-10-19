@@ -26,6 +26,16 @@ def test_stars_response_includes_the_ecliptic():
     assert stars['ecliptic'] == ecliptic['points']
 
 
+def test_stars_response_reports_delta_t_and_its_uncertainty():
+    ancient = _get('/api/stars', year='-2499').get_json()['meta']['delta_t']
+    assert not ancient['measured']
+    assert ancient['seconds'] == pytest.approx(59700, rel=0.01)       # about 16.6 hours
+    low, high = ancient['moon_uncertainty_deg']
+    assert low < high and high == pytest.approx(0.93, abs=0.01)     # the README table, 2500 BC
+    modern = _get('/api/stars', year='2000').get_json()['meta']['delta_t']
+    assert modern['measured'] and modern['uncertainty_s'][1] < 5.0   # 0.8 t^2 gives 2.6 s
+
+
 def test_site_lookup_is_exact_and_case_insensitive():
     r = _get('/api/stars', site='stonehenge')
     assert r.status_code == 200

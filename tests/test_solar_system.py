@@ -11,7 +11,7 @@ from astropy.time import Time
 from alignment import _date_to_jd
 from precession import _to_cirs
 from solar_system import _sun_geocentric, body_altaz, geocentric_positions
-from timescales import _SEGMENTS, delta_t
+from timescales import _SEGMENTS, delta_t, delta_t_uncertainty
 
 GIZA_LAT, GIZA_LON = 29.9792, 31.1342
 
@@ -70,6 +70,28 @@ def _separation_deg(alt1, az1, alt2, az2):
 def test_delta_t_matches_nasa_table(year, expected):
     # Published values are rounded to 10 s before 1600 and to 1 s after.
     assert abs(delta_t(year) - expected) < max(2.0, 0.005 * abs(expected))
+
+
+# Standard error of Delta T in seconds, from NASA's table of both models
+# (eclipse.gsfc.nasa.gov/SEhelp/uncertainty2004.html).
+@pytest.mark.parametrize('year, expected', [
+    (-1000, 636), (-500, 431), (0, 265), (500, 139), (1000, 54), (1200, 31),
+])
+def test_delta_t_uncertainty_matches_morrison_and_stephenson(year, expected):
+    assert delta_t_uncertainty(year)[0] == pytest.approx(expected, abs=1.0)
+
+
+@pytest.mark.parametrize('year, expected', [
+    (-4000, 16291), (-3500, 12378), (-3000, 8978), (-2500, 6094), (-2000, 3732), (-1500, 1900),
+])
+def test_delta_t_uncertainty_matches_huber(year, expected):
+    assert delta_t_uncertainty(year)[1] == pytest.approx(expected, abs=1.0)
+
+
+def test_cautious_uncertainty_is_never_below_the_optimistic_one():
+    for year in range(-11999, 2027, 50):
+        low, high = delta_t_uncertainty(year)
+        assert 0.0 <= low <= high
 
 
 @pytest.mark.parametrize('boundary', [seg[0] for seg in _SEGMENTS[1:]])

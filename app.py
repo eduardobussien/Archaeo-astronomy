@@ -11,6 +11,7 @@ from alignment import (CALENDARS, calculate_alignments, calculate_ecliptic, days
 from alignment_finder import EVENTS, SUN_LIMBS, find_axis_crossings, find_sun_alignment
 from data import MONUMENTS, STARS
 from precession import EPOCH_RANGE
+from timescales import delta_t_report
 from visibility import DEFAULT_EXTINCTION
 
 app = Flask(__name__)
@@ -121,7 +122,9 @@ def stars():
         refraction - 1 for apparent altitudes (default), 0 for geometric
 
     meta.dates gives the same local date in both calendars; ecliptic is the same
-    list /api/ecliptic returns.
+    list /api/ecliptic returns. meta.delta_t gives Delta T, its published
+    uncertainty (optimistic, cautious) and how far that moves the Moon; star
+    positions do not depend on it.
     Invalid parameters return HTTP 400 (404 for an unknown site) with {"error": message}.
     """
     lat, lon, elevation, site = _location()
@@ -155,6 +158,7 @@ def stars():
             'jd':      float(results['jd']),
             'lst':     float(results['lst']),
             'method':  results['method'],
+            'delta_t': delta_t_report(results['jd']),
         },
         'monument': monument_info,
         'stars': {
