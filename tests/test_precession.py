@@ -46,19 +46,46 @@ def _astropy_frame(jd):
     return t, AltAz(obstime=t, location=loc)
 
 
-def test_stars_match_astropy_near_j2000():
-    names = ['Sirius', 'Alnitak', 'Deneb', 'Canopus', 'Polaris', 'Arcturus']
-    jd = _date_to_jd(2000, 3, 20, 20.0)
+# astropy warns that ancient dates have no leap seconds, no measured polar motion and fall
+# outside its aberration formula's tuned range; each matters only at the arcsecond level.
+@pytest.mark.filterwarnings('ignore::erfa.ErfaWarning')
+@pytest.mark.filterwarnings('ignore:Tried to get polar motions:astropy.utils.exceptions.AstropyWarning')
+@pytest.mark.parametrize('year', [2000, 1000, 1, -999])
+def test_all_stars_match_astropy_back_to_1000_bc(year):
+    # astropy is an independent implementation (IAU 2006 precession, its own frames and space
+    # motion). Its CIO locator comes from the IAU 2006 series, which drifts from its own
+    # definition before about 1000 BC (2.4' at 2000 BC, 38' at 4000 BC; see the next test),
+    # so the comparison stops here. Nutation and aberration, which astropy applies and this
+    # engine does not, account for most of the remaining 0.2' to 0.7'.
+    names = list(STARS)
+    jd = _date_to_jd(year, 3, 20, 20.0)
     t, frame = _astropy_frame(jd)
-    cat = {k: np.array([STARS[n][k] for n in names]) for k in ('ra', 'dec', 'pm_ra', 'pm_dec', 'dist')}
+    cat = {k: np.array([STARS[n][k] for n in names])
+           for k in ('ra', 'dec', 'pm_ra', 'pm_dec', 'dist', 'rv')}
     ref = SkyCoord(ra=cat['ra'] * u.deg, dec=cat['dec'] * u.deg, distance=cat['dist'] * u.pc,
                    pm_ra_cosdec=cat['pm_ra'] * u.mas / u.yr, pm_dec=cat['pm_dec'] * u.mas / u.yr,
+                   radial_velocity=cat['rv'] * u.km / u.s,
                    obstime=Time('J2000')).apply_space_motion(new_obstime=t).transform_to(frame)
 
     alt, az = star_altaz(cat['ra'], cat['dec'], cat['pm_ra'], cat['pm_dec'], cat['dist'],
-                         jd, GIZA_LAT, GIZA_LON)
+                         jd, GIZA_LAT, GIZA_LON, cat['rv'])
 
     assert _separation_deg(alt, az, ref.alt.deg, ref.az.deg).max() < ARCMIN
+
+
+def test_cio_locator_matches_its_definition_integrated_along_the_iau2006_pole():
+    # s is defined by ds/dt = -(X dY/dt - Y dX/dt) / (1 + Z) along the path of the pole.
+    # Integrating that with IAU 2006's own mean pole, back to 4000 BC, lands on this
+    # engine's value; the IAU 2006 series for s (erfa.s06, used by astropy) is a
+    # polynomial fitted near J2000 and is 38' off its own definition by then.
+    jd = J2000_JD - np.arange(0.0, 6000 * 365.25 + 1.0, 365.25 / 4)
+    x, y = erfa.bpn2xy(erfa.pmat06(jd, 0.0))
+    rate = -(x * np.gradient(y, jd) - y * np.gradient(x, jd)) / (1.0 + np.sqrt(1.0 - x * x - y * y))
+    s = erfa.s06(jd[0], 0.0, x[0], y[0]) + np.concatenate(
+        [[0.0], np.cumsum((rate[1:] + rate[:-1]) / 2.0 * np.diff(jd))])
+    for years_back in (1000, 2000, 3000, 4000, 5000, 6000):
+        i = years_back * 4
+        assert abs(cio_locator(erfa.epj(jd[i], 0.0)) - s[i]) < 0.1 * ARCMIN * np.pi / 180.0
 
 
 def test_ecliptic_matches_astropy_near_j2000():

@@ -15,7 +15,7 @@ All tests are in `tests/` and run on every push (see the README).
 
 | What | Source | Strength | Code | Checked by |
 |---|---|---|---|---|
-| Long-term precession of the equator and ecliptic | Vondrák, J., Capitaine, N. & Wallace, P. (2011), *New precession expressions, valid for long time intervals*, A&A 534, A22, [doi:10.1051/0004-6361/201117274](https://doi.org/10.1051/0004-6361/201117274) | Primary | `src/precession.py` (via ERFA `ltpb`, `ltpequ`, `ltpecl`, `ltecm`) | `tests/test_precession.py`: astropy near J2000, pole stars (Thuban, Vega) |
+| Long-term precession of the equator and ecliptic | Vondrák, J., Capitaine, N. & Wallace, P. (2011), *New precession expressions, valid for long time intervals*, A&A 534, A22, [doi:10.1051/0004-6361/201117274](https://doi.org/10.1051/0004-6361/201117274) | Primary | `src/precession.py` (via ERFA `ltpb`, `ltpequ`, `ltpecl`, `ltecm`) | `tests/test_precession.py`: all 60 stars against astropy back to 1000 BC, the CIO locator against its definition back to 4000 BC, pole stars (Thuban, Vega) |
 | Fundamental astronomy routines | IAU SOFA, through [ERFA / pyerfa](https://github.com/liberfa/pyerfa) | Primary | throughout | |
 | Obliquity at J2000 (84381.406 arcsec) | IAU 2006 precession (Capitaine et al. 2003, A&A 412, 567) | Primary | `mean_obliquity` in `src/precession.py` | `tests/test_monuments.py`, `tests/test_alignment_finder.py` |
 | Star positions and proper motions | Hipparcos new reduction: van Leeuwen, F. (2007), A&A 474, 653 | Primary | `STARS` in `src/data.py` | |

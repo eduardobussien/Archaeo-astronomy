@@ -121,7 +121,18 @@ The engine computes geometric mean places: nutation and aberration (each under 2
 
 The air bends light, so everything near the horizon appears higher than it geometrically is: about 34 arcminutes at the horizon, falling to zero overhead. That shifts when and where objects appear to rise, which is exactly what alignment claims depend on. Displayed altitudes use the Saemundsson (1986) formula, which agrees with ERFA's refraction model to within 0.15 arcminutes above 10 degrees. Refraction scales with air pressure, which is taken from each site's elevation using the standard atmosphere: at Tiwanaku (3,850 m) it is 38% weaker than at sea level. Temperature and weather also change refraction near the horizon by a few arcminutes; standard conditions (10 C) are assumed. The API returns geometric altitudes with `refraction=0`.
 
-The model is checked in `tests/` against astropy near J2000 (under 1 arcmin), against known pole stars (Thuban around 2830 BC, Vega around 12,000 BC), against the lowest culmination of Orion's Belt near 10,500 BC, and against the Sothic heliacal rising of Sirius in 2781 BC.
+The star engine is checked in `tests/` against astropy, an independent implementation, for all 60 stars: they agree to within 0.7 arcminutes at every era from AD 2000 back to 1000 BC, most of it from nutation and aberration, which astropy applies and this engine leaves out. It is also checked against known pole stars (Thuban around 2830 BC, Vega around 12,000 BC), against the lowest culmination of Orion's Belt near 10,500 BC, and against the Sothic heliacal rising of Sirius in 2781 BC.
+
+Astropy cannot serve as a reference before about 1000 BC, and the reason matters to anyone computing ancient skies with it. Turning the Earth's rotation into star positions needs the CIO locator `s`, which the IAU 2006 standard (and so astropy, and other software using the standard IAU 2006 routines) takes from a polynomial series fitted near the present. `s` is defined by an integral along the path of the celestial pole, and integrating that definition with IAU 2006's own pole shows how far the series drifts (arcminutes):
+
+| Era | `s` from its definition (IAU 2006 pole) | This app | IAU 2006 series |
+|---|---|---|---|
+| 1000 BC | -16.16 | -16.16 | -16.49 |
+| 2000 BC | -37.92 | -37.93 | -40.29 |
+| 3000 BC | -73.06 | -73.08 | -84.12 |
+| 4000 BC | -124.00 | -124.06 | -162.68 |
+
+At 3000 BC the series puts every star about 10 arcminutes out of place, a third of the Moon's width, and at 4000 BC more than half a degree. This app integrates `s` from its definition along the long-term pole instead, and a test holds it to the integral above to within 0.1 arcminutes, back to 4000 BC.
 
 ### Sun, Moon and planets
 
