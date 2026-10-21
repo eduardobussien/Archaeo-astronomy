@@ -100,6 +100,7 @@ tests/
   data/                 Reference values used by the tests (JPL DE441, US Naval Observatory)
 docs/
   SOURCES.md            Every source behind the engine and the monument data
+  ACCURACY.md           How accurate each answer is, by era, and what it was checked against
 requirements.txt        Packages the app needs
 requirements-dev.txt    Plus the test tools (astropy, pytest)
 ```
@@ -107,6 +108,8 @@ requirements-dev.txt    Plus the test tools (astropy, pytest)
 ---
 
 ## Calculation engine
+
+How far to trust each answer, era by era and with the reference it was checked against, is collected in [docs/ACCURACY.md](docs/ACCURACY.md).
 
 Star positions use a single model at every epoch (`src/precession.py`):
 

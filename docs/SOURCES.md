@@ -7,7 +7,7 @@ Sources are marked by strength:
 - **Primary:** a peer-reviewed study, a survey, or an official ephemeris or catalogue.
 - **Secondary:** a summary of someone else's work (an encyclopedia, a website, a popular article). It is used only where no primary value was available, and it is named so it can be replaced.
 
-All tests are in `tests/` and run on every push (see the README).
+All tests are in `tests/` and run on every push (see the README). The accuracy each check found is collected in [ACCURACY.md](ACCURACY.md).
 
 ---
 
