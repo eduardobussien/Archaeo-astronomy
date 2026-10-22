@@ -22,7 +22,8 @@ An interactive web app for reconstructing the ancient night sky at historical si
 - **Time animation:** step or play forward/backward in 1h / 1d / 1mo / 1yr increments
 - **Precession sweep:** watch the North Celestial Pole trace its 26,000-year arc; animate in 10yr / 100yr / 1kyr steps
 - **Heliacal rising finder:** find the exact date a star first appears at dawn after a period of solar conjunction
-- **URL permalink:** every state (site, date, toggles) is encoded in the URL; share or bookmark any view
+- **URL permalink:** every state (site or your own coordinates, date, toggles) is encoded in the URL; share or bookmark any view. It also carries an alignment investigation (axis, horizon, star or Sun, event), and if a search was run, opening the link runs it again
+- **Your own site:** enter coordinates and an axis azimuth, and the axis is drawn on the sky like a monument's
 - **Gregorian or Julian dates:** read dates the way modern astronomers or historical sources give them
 - **Alignment finder:** for a monument's axis, find the years when a star rose or set exactly along it, or the days (and solstice eras) when the Sun did, then jump to that moment
 

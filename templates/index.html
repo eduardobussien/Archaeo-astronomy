@@ -911,7 +911,10 @@
       // Default to Great Pyramid, then override with URL params if present
       sel.value = 'Great Pyramid of Giza';
       onSiteChange();
-      if (loadFromUrl()) fetchAndRender();
+      if (loadFromUrl()) {
+        fetchAndRender();
+        if (new URLSearchParams(window.location.search).get('find') === '1') findAlignment();
+      }
     });
 
   // ── Site dropdown change ──
@@ -1092,9 +1095,19 @@
     set:  { upper: 'last gleam',  centre: 'centre of the disc', lower: 'whole disc still up' },
   };
 
-  document.getElementById('af-star').addEventListener('change', e => {
-    document.getElementById('af-sun-options').style.display = e.target.value === 'Sun' ? 'block' : 'none';
+  function showSunOptions() {
+    const sun = document.getElementById('af-star').value === 'Sun';
+    document.getElementById('af-sun-options').style.display = sun ? 'block' : 'none';
+  }
+  document.getElementById('af-star').addEventListener('change', showSunOptions);
+
+  // Editing the axis redraws it on the sky, and the link always carries the investigation.
+  document.getElementById('af-azimuth').addEventListener('input', () => {
+    if (lastChartData) renderChart(lastChartData);
   });
+  for (const id of ['af-star', 'af-event', 'af-azimuth', 'af-horizon', 'af-limb']) {
+    document.getElementById(id).addEventListener('change', () => { if (lastChartData) updateUrl(); });
+  }
 
   function jumpRow(label, detail, moment) {
     const i = alignmentJumps.push(moment) - 1;
@@ -1144,6 +1157,7 @@
     }
     try {
       displayAlignmentResult(await getJson(`/api/alignment?${query}`));
+      if (lastChartData) updateUrl();
     } catch (e) {
       showAlignmentMessage(e.message);
     } finally {
@@ -1274,6 +1288,17 @@
     p.set('planets',  planetsOn  ? '1' : '0');
     p.set('labels',   labelsOn   ? '1' : '0');
     p.set('ecliptic', eclipticOn ? '1' : '0');
+    // The alignment finder's inputs, and whether a search was run, so a link reopens it
+    const axis = document.getElementById('af-azimuth').value;
+    if (axis !== '') {
+      const target = document.getElementById('af-star').value;
+      p.set('axis', axis);
+      p.set('horizon', document.getElementById('af-horizon').value || '0');
+      p.set('target', target);
+      p.set('event', document.getElementById('af-event').value);
+      if (target === 'Sun') p.set('limb', document.getElementById('af-limb').value);
+      if (alignmentResult) p.set('find', '1');
+    }
     history.replaceState(null, '', '?' + p.toString());
   }
 
@@ -1306,6 +1331,17 @@
       if (p.has('elevation')) document.getElementById('elevation').value = p.get('elevation');
     }
     onSiteChange();
+
+    // A shared investigation: the link's axis and horizon override the monument's own.
+    if (p.has('axis')) {
+      document.getElementById('af-azimuth').value = p.get('axis');
+      if (p.has('horizon')) document.getElementById('af-horizon').value = p.get('horizon');
+      for (const [id, key] of [['af-star', 'target'], ['af-event', 'event'], ['af-limb', 'limb']]) {
+        const sel = document.getElementById(id);
+        if ([...sel.options].some(o => o.value === p.get(key))) sel.value = p.get(key);
+      }
+      showSunOptions();
+    }
 
     setYear(+p.get('year') || 0);
 
@@ -1472,6 +1508,16 @@
     if (!dt || dt.measured) return '';
     return `Position uncertain by up to ${dt.moon_uncertainty_deg[1].toFixed(1)}° in this era: ` +
            "the Earth's rotation is not measured before 720 BC.";
+  }
+
+  // The axis drawn on the sky is the alignment finder's azimuth, which a monument fills
+  // in with its surveyed axis; with the box empty, a monument still shows its own.
+  function drawnAxis(data) {
+    const m = data.monument;
+    const typed = parseFloat(document.getElementById('af-azimuth').value);
+    if (isNaN(typed)) return m ? { az: m.orientation_az, label: m.name } : null;
+    const az = ((typed % 360) + 360) % 360;
+    return { az, label: m && Math.abs(az - m.orientation_az) < 0.01 ? m.name : 'Your axis' };
   }
 
   function makePlanetTraces(planets, showLabels, showPlanets, moonNote) {
@@ -1848,16 +1894,17 @@
       });
     }
 
-    // Monument orientation line
-    if (data.monument) {
-      const az = data.monument.orientation_az;
+    // The axis line, with its opposite direction faint
+    const axis = drawnAxis(data);
+    if (axis) {
+      const az = axis.az;
       traces.push({
         type: 'scatterpolar',
         r: [0, 90],
         theta: [az, az],
         mode: 'lines',
         line: { color: '#f0c040', width: 2, dash: 'dash' },
-        hovertemplate: `<b>${data.monument.name}</b><br>Orientation: ${az}°<extra></extra>`,
+        hovertemplate: `<b>${axis.label}</b><br>Axis: ${+az.toFixed(2)}°<extra></extra>`,
         showlegend: false,
       });
       // Opposite direction (faint dotted)
