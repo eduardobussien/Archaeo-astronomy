@@ -24,6 +24,7 @@ An interactive web app for reconstructing the ancient night sky at historical si
 - **Heliacal rising finder:** find the exact date a star first appears at dawn after a period of solar conjunction
 - **URL permalink:** every state (site or your own coordinates, date, toggles) is encoded in the URL; share or bookmark any view. It also carries an alignment investigation (axis, horizon, star or Sun, event), and if a search was run, opening the link runs it again
 - **Your own site:** enter coordinates and an axis azimuth, and the axis is drawn on the sky like a monument's
+- **CSV export:** download the sky on screen or an alignment search as a CSV file that records how it was made
 - **Gregorian or Julian dates:** read dates the way modern astronomers or historical sources give them
 - **Alignment finder:** for a monument's axis, find the years when a star rose or set exactly along it, or the days (and solstice eras) when the Sun did, then jump to that moment
 
@@ -233,10 +234,10 @@ GitHub Actions runs the same suite on Ubuntu and Windows for every push (`.githu
 
 | Endpoint | Parameters | Description |
 |---|---|---|
-| `GET /api/stars` | `lat, lon, elevation, year, month, day, hour, calendar, refraction, site` | Star, Sun, Moon and planet alt-az positions plus the ecliptic, everything one sky view needs |
+| `GET /api/stars` | `lat, lon, elevation, year, month, day, hour, calendar, refraction, site, format` | Star, Sun, Moon and planet alt-az positions plus the ecliptic, everything one sky view needs |
 | `GET /api/ecliptic` | same as `/api/stars` | Only the 73 ecliptic great-circle points in alt-az |
 | `GET /api/heliacal` | `lat, lon, year, star, extinction, site` | First heliacal rising date for a star |
-| `GET /api/alignment` | `site` or `lat, lon, elevation`; `star, event, azimuth, horizon, from, to, calendar, refraction`; for `star=Sun` also `year, limb` | Years in which a star rose or set along an axis, a night to see each, and the drift curve; for the Sun, the days of the year on the axis, the solstice range and the solstice eras on the axis |
+| `GET /api/alignment` | `site` or `lat, lon, elevation`; `star, event, azimuth, horizon, from, to, calendar, refraction, format`; for `star=Sun` also `year, limb` | Years in which a star rose or set along an axis, a night to see each, and the drift curve; for the Sun, the days of the year on the axis, the solstice range and the solstice eras on the axis |
 | `GET /api/sites` | none | List of all monument sites with coordinates and orientation notes |
 
 Dates are in the proleptic Gregorian calendar unless `calendar=julian` is given; `/api/stars` returns the same local date in both calendars in `meta.dates`, and `/api/heliacal` answers in the calendar requested. Historians give ancient dates in the Julian calendar (the Sothic rising of Sirius on 19 July), which by 2781 BC runs 23 days ahead of the Gregorian (26 June); the web interface can show either and switching relabels the same moment.
@@ -244,6 +245,8 @@ Dates are in the proleptic Gregorian calendar unless `calendar=julian` is given;
 `year` uses astronomical convention: -2500 = 2501 BC, 0 = 1 BC, 1 = 1 AD. The web interface shows and accepts historical years instead (-2500 = 2500 BC, no year 0) and converts them, so permalinks carry the astronomical value.
 
 `site` must be an exact monument name from `/api/sites` (case does not matter). Invalid input returns HTTP 400 (404 for an unknown site) with a JSON body such as `{"error": "'lat' must be between -90.0 and 90.0"}`. Dates are checked against the real month length, so 29 February is accepted only in leap years. With custom coordinates, `elevation` (metres, default 0) sets the air pressure for refraction; `refraction=0` returns geometric altitudes on `/api/stars`, `/api/ecliptic` and `/api/heliacal`.
+
+`format=csv` on `/api/stars` and `/api/alignment` returns the results as a CSV file instead of JSON: one row per star and body, or for an alignment one table whose `section` column says what each row is (a crossing, a date, a solstice, a point on the drift curve). Each file begins with `#` lines recording the site, date, settings and the exact request, so it can be regenerated; spreadsheets show them as text rows, and pandas skips them with `pd.read_csv(path, comment='#')`. The web interface offers the same files through its CSV buttons.
 
 ---
 

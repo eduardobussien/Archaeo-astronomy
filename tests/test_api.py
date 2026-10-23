@@ -1,3 +1,5 @@
+import csv
+
 import pytest
 
 from app import app
@@ -169,6 +171,54 @@ def test_alignment_rejects_invalid_requests(params):
     r = _get('/api/alignment', **params)
     assert r.status_code == 400
     assert r.get_json()['error']
+
+
+def _csv_table(response):
+    """(header lines as a dict, rows as dicts) from a CSV download."""
+    lines = response.get_data(as_text=True).splitlines()
+    header = dict(l[2:].split(': ', 1) for l in lines if l.startswith('# '))
+    return header, list(csv.DictReader(l for l in lines if not l.startswith('#')))
+
+
+def test_stars_csv_matches_the_json_and_says_how_it_was_made():
+    params = {'site': 'Stonehenge', 'year': '-2499', 'month': '6', 'day': '21', 'hour': '4'}
+    r = _get('/api/stars', format='csv', **params)
+    assert r.status_code == 200 and r.mimetype == 'text/csv'
+    assert 'attachment' in r.headers['Content-Disposition']
+    header, rows = _csv_table(r)
+    assert header['site'] == 'Stonehenge' and header['local date (gregorian)'] == '2500 BC, June 21'
+    assert 'format=csv' in header['request']
+    body = _get('/api/stars', **params).get_json()
+    assert len(rows) == len(body['stars']) + len(body['planets'])
+    sirius = next(row for row in rows if row['name'] == 'Sirius')
+    assert float(sirius['altitude_deg']) == pytest.approx(body['stars']['Sirius']['altitude'], abs=1e-4)
+
+
+def test_alignment_csv_lists_the_same_crossings_as_the_json():
+    params = {'lat': '42.5', 'lon': '12.3', 'elevation': '300', 'star': 'Sirius',
+              'azimuth': '120', 'horizon': '1.5'}
+    body = _get('/api/alignment', **params).get_json()
+    header, rows = _csv_table(_get('/api/alignment', format='csv', **params))
+    assert header['site'] == 'custom coordinates' and header['horizon altitude_deg'] == '1.5'
+    crossings = [int(row['year']) for row in rows if row['section'] == 'crossing']
+    assert crossings == [c['year'] for c in body['crossings']]
+    assert sum(row['section'] == 'curve' for row in rows) > 100
+
+
+def test_sun_alignment_csv_lists_the_dates_and_solstices():
+    params = {'site': 'Pyramid of the Sun (Teotihuacan)', 'star': 'Sun', 'event': 'set',
+              'year': '150', 'limb': 'centre'}
+    header, rows = _csv_table(_get('/api/alignment', format='csv', **params))
+    assert header['part of the Sun'] == 'centre'
+    dates = [(int(row['month']), int(row['day'])) for row in rows if row['section'] == 'date']
+    assert dates == [(4, 30), (8, 13)]                     # Šprajc (2000)
+    assert {row['section'] for row in rows} >= {'june_solstice', 'december_solstice', 'solstice_curve'}
+
+
+@pytest.mark.parametrize('path', ['/api/stars', '/api/alignment'])
+def test_unknown_format_is_rejected(path):
+    r = _get(path, site='Stonehenge', format='xlsx')
+    assert r.status_code == 400 and r.get_json()['error']
 
 
 def test_heliacal_finds_sirius():

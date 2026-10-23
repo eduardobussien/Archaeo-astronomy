@@ -272,6 +272,13 @@
     }
     #btn-copy:hover { border-color: #58a6ff; color: #c9d1d9; }
     #btn-copy.copied { background: #1a7f37; border-color: #1a7f37; color: #fff; }
+    .csv-link {
+      background: #161b22; border: 1px solid #30363d; border-radius: 4px;
+      color: #8b949e; font-size: 0.72rem; padding: 3px 10px; text-decoration: none;
+      display: inline-block; transition: all 0.15s;
+    }
+    .csv-link:hover { border-color: #58a6ff; color: #c9d1d9; }
+    #af-result .csv-link { margin-top: 8px; }
 
     /* ── Animation controls ── */
     .anim-row { display:flex; align-items:center; gap:8px; margin-top:8px; }
@@ -654,6 +661,8 @@
     <button id="btn-labels" onclick="toggleLabels()">Labels</button>
     <button id="btn-ecliptic" onclick="toggleEcliptic()">Ecliptic</button>
     <button id="btn-copy" onclick="copyPermalink()" title="Copy shareable link">&#128279; Copy Link</button>
+    <a id="btn-csv" class="csv-link" href="#" download
+       title="Download every star and planet in this sky, with its position, as a CSV file">&#8681; CSV</a>
   </div>
 
   <div id="sky-chart"></div>
@@ -1157,6 +1166,13 @@
     }
     try {
       displayAlignmentResult(await getJson(`/api/alignment?${query}`));
+      const csv = document.createElement('a');
+      csv.className = 'csv-link';
+      csv.href = `/api/alignment?${query}&format=csv`;
+      csv.download = '';
+      csv.title = 'The years or dates, azimuths and drift curve of this search, as a CSV file';
+      csv.textContent = '⇩ Download CSV';
+      document.getElementById('af-result').append(csv);
       if (lastChartData) updateUrl();
     } catch (e) {
       showAlignmentMessage(e.message);
@@ -1403,6 +1419,8 @@
           clampDay(shown);
         }
         inputCalendar = shown;
+        // The download is the sky on screen, from the same request
+        document.getElementById('btn-csv').href = `/api/stars?${query}&format=csv`;
         eclipticData = data.ecliptic;
         renderChart(data);
         updateInfoBar(data);
