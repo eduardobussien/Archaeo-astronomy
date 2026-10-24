@@ -23,7 +23,7 @@ An interactive web app for reconstructing the ancient night sky at historical si
 - **Precession sweep:** watch the North Celestial Pole trace its 26,000-year arc; animate in 10yr / 100yr / 1kyr steps
 - **Heliacal rising finder:** find the exact date a star first appears at dawn after a period of solar conjunction
 - **URL permalink:** every state (site or your own coordinates, date, toggles) is encoded in the URL; share or bookmark any view. It also carries an alignment investigation (axis, horizon, star or Sun, event), and if a search was run, opening the link runs it again
-- **Your own site:** enter coordinates and an axis azimuth, and the axis is drawn on the sky like a monument's
+- **Your own site:** enter coordinates and an axis azimuth, and the axis is drawn on the sky like a monument's. [docs/RESEARCH_GUIDE.md](docs/RESEARCH_GUIDE.md) covers measuring the axis (true, not magnetic, north) and the horizon, avoiding chance alignments, using the API from Python, and reporting a result
 - **CSV export:** download the sky on screen or an alignment search as a CSV file that records how it was made
 - **Gregorian or Julian dates:** read dates the way modern astronomers or historical sources give them
 - **Alignment finder:** for a monument's axis, find the years when a star rose or set exactly along it, or the days (and solstice eras) when the Sun did, then jump to that moment
@@ -103,6 +103,7 @@ tests/
 docs/
   SOURCES.md            Every source behind the engine and the monument data
   ACCURACY.md           How accurate each answer is, by era, and what it was checked against
+  RESEARCH_GUIDE.md     Investigating your own site: measuring it, avoiding pitfalls, the API from Python
 requirements.txt        Packages the app needs
 requirements-dev.txt    Plus the test tools (astropy, pytest)
 ```

@@ -111,7 +111,18 @@ These azimuths are marked approximate in the data and in the app.
 
 ---
 
-## 3. What still needs a primary source
+## 3. Research guide
+
+References in [RESEARCH_GUIDE.md](RESEARCH_GUIDE.md):
+
+- **Magnetic declination:** [NOAA NCEI magnetic field calculators](https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml). Primary.
+- **Horizon profiles from elevation data:** [HeyWhatsThat](https://www.heywhatsthat.com), computed from SRTM data with the Earth's curvature and terrestrial refraction ([FAQ](https://www.heywhatsthat.com/faq.html)). Secondary (a tool, not a survey).
+- **Stars near the horizon:** Schaefer, B. E. (1986), *Atmospheric extinction effects on stellar alignments*, JHA Archaeoastronomy Supplement 17, S32-S42, [doi:10.1177/002182868601701003](https://doi.org/10.1177/002182868601701003). Primary.
+- **Chance alignments and method:** Ruggles, C. (1999), *Astronomy in Prehistoric Britain and Ireland*, Yale University Press. Primary.
+
+---
+
+## 4. What still needs a primary source
 
 - El Castillo: confirm 291.72 degrees in Šprajc and Sánchez Nava (2015) itself.
 - Avebury, Carnac and Tiwanaku: a surveyed axis.
