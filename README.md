@@ -86,6 +86,7 @@ src/
   refraction.py     Atmospheric refraction, scaled by the site's elevation
   visibility.py     How dark the sky must be, and how high a star, for it to be seen at dawn
   alignment_finder.py  When a star rose or set along a monument's axis
+  horizon.py        Horizon profiles: the skyline's altitude in every direction
   data.py           Star catalog (60 stars: J2000 positions, proper motions, radial velocities) and monument list
   visualize.py      Static chart export helpers
 templates/
@@ -99,6 +100,7 @@ tests/
   test_visibility.py    Heliacal visibility: Schaefer and IMCCE criteria for Sirius
   test_alignment_finder.py  Axis crossings, checked against the engine; sunrise times: USNO
   test_monuments.py     Monument data against the publications it comes from
+  test_horizon.py       Horizon profiles: reading, interpolation, validation
   data/                 Reference values used by the tests (JPL DE441, US Naval Observatory)
 docs/
   SOURCES.md            Every source behind the engine and the monument data
