@@ -1,5 +1,6 @@
 import csv
 
+import numpy as np
 import pytest
 
 from app import app
@@ -164,7 +165,8 @@ def test_sun_alignment_lists_dates_and_solstice_range():
     {'lat': '30', 'lon': '31'},
     {'site': 'Stonehenge', 'event': 'culminate'},
     {'site': 'Stonehenge', 'star': 'Nibiru'},
-    {'site': 'Stonehenge', 'horizon': '15'},
+    {'site': 'Stonehenge', 'horizon': '50'},
+    {'site': 'Stonehenge', 'horizon': '0:1,90'},
     {'site': 'Stonehenge', 'from': '-2000', 'to': '-3000'},
 ])
 def test_alignment_rejects_invalid_requests(params):
@@ -219,6 +221,40 @@ def test_sun_alignment_csv_lists_the_dates_and_solstices():
 def test_unknown_format_is_rejected(path):
     r = _get(path, site='Stonehenge', format='xlsx')
     assert r.status_code == 400 and r.get_json()['error']
+
+
+PROFILE = '0:0,90:8,180:0,270:2'
+
+
+def test_horizon_endpoint_reads_a_profile_file():
+    r = CLIENT.post('/api/horizon', data='azimuth,altitude\n0,0\n90,8   # the ridge\n180\t0\n270 2\n')
+    assert r.status_code == 200
+    assert r.get_json() == {'profile': PROFILE, 'points': 4, 'lowest': 0.0, 'highest': 8.0}
+    bad = CLIENT.post('/api/horizon', data='0 1\nnorth 2\n')
+    assert bad.status_code == 400 and 'Line 2' in bad.get_json()['error']
+
+
+def test_stars_are_visible_only_above_the_skyline_and_the_outline_is_returned():
+    params = {'site': 'Stonehenge', 'year': '-2499', 'month': '6', 'day': '21', 'hour': '4'}
+    assert _get('/api/stars', **params).get_json()['horizon'] is None
+    body = _get('/api/stars', horizon=PROFILE, **params).get_json()
+    outline = body['horizon']['outline']
+    assert body['horizon']['profile'] == PROFILE and outline[0] == [0.0, 0.0] and outline[-1][0] == 360
+    assert [90.0, 8.0] in outline
+    for s in body['stars'].values():
+        assert s['visible'] == (s['altitude'] > np.interp(s['azimuth'], [0, 90, 180, 270, 360],
+                                                           [0, 8, 0, 2, 0]))
+    header, _ = _csv_table(_get('/api/stars', horizon=PROFILE, format='csv', **params))
+    assert header['horizon'].endswith(PROFILE)
+
+
+def test_alignment_with_a_profile_uses_the_skyline_at_the_axis():
+    params = {'site': 'Stonehenge', 'star': 'Sun', 'year': '-2499', 'horizon': '0:0,45:2,90:0'}
+    body = _get('/api/alignment', **params).get_json()
+    assert body['horizon'] == pytest.approx(2 - 2 * (49.95 - 45) / 45)     # 2 at 45, 0 at 90
+    assert body['horizon_profile'] == '0:0,45:2,90:0'
+    level = _get('/api/alignment', site='Stonehenge', star='Sun', year='-2499').get_json()
+    assert level['horizon_profile'] is None and level['horizon'] == 0.6
 
 
 def test_heliacal_finds_sirius():

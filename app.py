@@ -12,6 +12,7 @@ from alignment import (CALENDARS, calculate_alignments, calculate_ecliptic, days
                        find_heliacal_rising, format_year, local_calendar_dates)
 from alignment_finder import EVENTS, SUN_LIMBS, find_axis_crossings, find_sun_alignment
 from data import MONUMENTS, STARS
+from horizon import ALTITUDE_RANGE, HorizonProfile
 from precession import EPOCH_RANGE
 from timescales import delta_t_report
 from visibility import DEFAULT_EXTINCTION
@@ -100,6 +101,17 @@ def _date_time():
     return year, month, day, hour, calendar
 
 
+def _horizon(default=0.0):
+    """The skyline from ?horizon=: a number for a level horizon, or a profile 'az:alt,az:alt,...'."""
+    raw = request.args.get('horizon')
+    if raw is None or ':' not in raw:
+        return HorizonProfile([0.0], [_number('horizon', default, float, *ALTITUDE_RANGE)])
+    try:
+        return HorizonProfile.from_compact(raw)
+    except ValueError as err:
+        raise ApiError(str(err)) from None
+
+
 def _format():
     fmt = request.args.get('format', 'json').lower()
     if fmt not in ('json', 'csv'):
@@ -166,20 +178,26 @@ def stars():
         hour       - local mean solar time, 0-24 (default: 22.0)
         calendar   - 'gregorian' (default) or 'julian', both proleptic
         refraction - 1 for apparent altitudes (default), 0 for geometric
+        horizon    - the skyline: a number for a level horizon (default 0), or a
+                     horizon profile 'az:alt,az:alt,...' (see /api/horizon)
         format     - 'json' (default) or 'csv': one row per star and body, after
                      '#' lines giving the site, date and settings
 
-    meta.dates gives the same local date in both calendars; ecliptic is the same
-    list /api/ecliptic returns. meta.delta_t gives Delta T, its published
-    uncertainty (optimistic, cautious) and how far that moves the Moon; star
-    positions do not depend on it.
+    'visible' means above the skyline. meta.dates gives the same local date in
+    both calendars; ecliptic is the same list /api/ecliptic returns.
+    meta.delta_t gives Delta T, its published uncertainty (optimistic,
+    cautious) and how far that moves the Moon; star positions do not depend on
+    it. When a horizon is given, 'horizon' holds its profile and an outline,
+    [azimuth, altitude] pairs every degree and at every surveyed point, to draw.
     Invalid parameters return HTTP 400 (404 for an unknown site) with {"error": message}.
     """
     fmt = _format()
     lat, lon, elevation, site = _location()
     year, month, day, hour, calendar = _date_time()
     refract = _flag('refraction', True)
-    results = calculate_alignments(lat, lon, year, month, day, hour, elevation, refract, calendar)
+    horizon = _horizon()
+    results = calculate_alignments(lat, lon, year, month, day, hour, elevation, refract, calendar,
+                                   horizon)
     ecliptic_points = calculate_ecliptic(lat, lon, year, month, day, hour, elevation, refract, calendar)
 
     monument_info = None
@@ -229,13 +247,26 @@ def stars():
             for name, d in results['planets'].items()
         },
         'ecliptic': ecliptic_points,
+        'horizon': None,
     }
+    if 'horizon' in request.args:
+        az, alt = horizon.outline()
+        payload['horizon'] = {'profile': horizon.compact(),
+                              'outline': [[float(a), round(float(h), 3)] for a, h in zip(az, alt)]}
     if fmt == 'csv':
-        return _stars_csv(payload, site, refract)
+        return _stars_csv(payload, site, refract, horizon)
     return jsonify(payload)
 
 
-def _stars_csv(payload, site, refract):
+def _describe(horizon):
+    """The horizon in words, for a CSV header."""
+    if horizon.is_level:
+        return f'level at {horizon.altitudes[0]:g} deg'
+    return (f'profile of {len(horizon.azimuths)} points (azimuth:altitude in deg, '
+            f'linear between): {horizon.compact()}')
+
+
+def _stars_csv(payload, site, refract, horizon):
     meta = payload['meta']
     header = _provenance(meta['lat'], meta['lon'], meta['elevation_m'], site, refract, meta['calendar'])
     for cal, d in meta['dates'].items():
@@ -248,6 +279,7 @@ def _stars_csv(payload, site, refract):
                          f"moves the Moon by {dt['moon_uncertainty_deg'][0]} to "
                          f"{dt['moon_uncertainty_deg'][1]} deg; stars are unaffected")
     header['method'] = meta['method']
+    header['horizon'] = _describe(horizon)
     rows = [[name, 'star', s['constellation'], s['magnitude'], round(s['altitude'], 4),
              round(s['azimuth'], 4), s['visible']] for name, s in payload['stars'].items()]
     rows += [[name, 'solar system', '', '', round(p['altitude'], 4), round(p['azimuth'], 4),
@@ -266,18 +298,21 @@ def heliacal():
     /api/stars), year (astronomical, in that calendar), star (catalog name,
     default Sirius), extinction (atmospheric extinction in magnitudes per
     airmass, 0.1 to 0.6, default 0.27; higher means hazier air, so the star
-    must climb higher to be seen). The date returned is in the same calendar.
+    must climb higher to be seen), horizon (as /api/stars: the star must also
+    clear the skyline in its direction). The date returned is in the same calendar.
     """
     lat, lon, elevation, _ = _location()
     calendar = _calendar()
     year = _number('year', -2780, int, *YEAR_RANGE)
     extinction = _number('extinction', DEFAULT_EXTINCTION, float, 0.1, 0.6)
     refract = _flag('refraction', True)
+    horizon = _horizon()
     star = request.args.get('star', 'Sirius')
     if star not in STARS:
         raise ApiError("Unknown star; it must be one of the catalog names")
 
-    result = find_heliacal_rising(lat, lon, year, star, extinction, elevation, refract, calendar)
+    result = find_heliacal_rising(lat, lon, year, star, extinction, elevation, refract, calendar,
+                                  horizon)
     result['calendar'] = calendar
     if not result['found']:
         when = format_year(year)
@@ -300,9 +335,11 @@ def alignment():
     /api/stars); star (catalog name or 'Sun', default Sirius); event ('rise'
     or 'set', default 'rise'); azimuth (degrees from north through east;
     defaults to the monument's orientation, required with custom coordinates;
-    0-180 for a rising, 180-360 for a setting); horizon (apparent altitude of
-    the visible horizon, -2 to 10 degrees; defaults to the monument's measured
-    horizon where one is known, else 0); from and to (astronomical years, default 12,000 BC to the current
+    0-180 for a rising, 180-360 for a setting); horizon (as /api/stars: the
+    apparent altitude of the visible horizon, -2 to 45 degrees, or a horizon
+    profile; defaults to the monument's measured horizon along its axis where
+    one is known, else 0; the reported 'horizon' is the skyline's altitude at
+    the axis); from and to (astronomical years, default 12,000 BC to the current
     year). For the Sun also: year (astronomical, default -2499) to list the
     days of that year, and limb ('upper' for the first gleam, the default,
     'centre' or 'lower' for the whole disc on the horizon). format ('json' or
@@ -334,20 +371,20 @@ def alignment():
                        f"must be between {low:.0f} and {high:.0f} degrees; got {azimuth:g}")
 
     site_horizon = MONUMENTS[site]['horizon_deg'] if site else None
-    horizon = _number('horizon', 0.0 if site_horizon is None else site_horizon, float, -2.0, 10.0)
+    skyline = _horizon(0.0 if site_horizon is None else site_horizon)
+    horizon = float(skyline(azimuth))
     first_year = _number('from', -11999, int, *YEAR_RANGE)
     last_year = _number('to', datetime.date.today().year, int, *YEAR_RANGE)
     if last_year <= first_year:
         raise ApiError("'to' must be later than 'from'")
 
     if star == 'Sun':
-        result = _sun_alignment(lat, lon, elevation, azimuth, event, horizon, refract,
+        result = _sun_alignment(lat, lon, elevation, azimuth, event, skyline, refract,
                                 first_year, last_year, calendar)
     else:
-        result = find_axis_crossings(lat, lon, star, azimuth, event, horizon, elevation,
+        result = find_axis_crossings(lat, lon, star, azimuth, event, skyline, elevation,
                                      refract, first_year, last_year, calendar)
-        result.update({'star': star, 'event': event, 'azimuth': azimuth, 'horizon': horizon,
-                       'calendar': calendar})
+        result.update({'star': star, 'event': event, 'azimuth': azimuth, 'calendar': calendar})
         if not result['found']:
             span = f"between {format_year(first_year)} and {format_year(last_year)}"
             if result.get('reason') == 'never_crosses_horizon':
@@ -358,8 +395,11 @@ def alignment():
                 result['message'] = (f"{star} did not {event} on the {azimuth:g} degree axis {span}; "
                                      f"it came closest in {format_year(c['year'])}, "
                                      f"{abs(c['offset']):.1f} degrees away.")
+    result['horizon'] = horizon
+    result['horizon_profile'] = None if skyline.is_level else skyline.compact()
     if fmt == 'csv':
         header = _provenance(lat, lon, elevation, site, refract, calendar)
+        header['horizon'] = _describe(skyline)
         header['years searched'] = f'{format_year(first_year)} to {format_year(last_year)}'
         return _alignment_csv(result, header)
     return jsonify(result)
@@ -407,17 +447,17 @@ def _alignment_csv(result, header):
                  'drift_deg_per_century'], rows)
 
 
-def _sun_alignment(lat, lon, elevation, azimuth, event, horizon, refract, first_year, last_year,
+def _sun_alignment(lat, lon, elevation, azimuth, event, skyline, refract, first_year, last_year,
                    calendar):
     year = _number('year', -2499, int, *YEAR_RANGE)
     limb = request.args.get('limb', 'upper').lower()
     if limb not in SUN_LIMBS:
         raise ApiError("'limb' must be 'upper', 'centre' or 'lower'")
 
-    result = find_sun_alignment(lat, lon, azimuth, event, year, horizon, elevation, refract,
+    result = find_sun_alignment(lat, lon, azimuth, event, year, skyline, elevation, refract,
                                 limb, first_year, last_year, calendar)
-    result.update({'star': 'Sun', 'event': event, 'azimuth': azimuth, 'horizon': horizon,
-                   'limb': limb, 'calendar': calendar})
+    result.update({'star': 'Sun', 'event': event, 'azimuth': azimuth, 'limb': limb,
+                   'calendar': calendar})
     when = 'sunrise' if event == 'rise' else 'sunset'
     if result['june'] is None:
         result['message'] = f"There is no {when} here in {format_year(year)}."
@@ -427,6 +467,32 @@ def _sun_alignment(lat, lon, elevation, azimuth, event, horizon, refract, first_
                              f"June solstice to {result['december']['azimuth']:.1f} degrees at the "
                              "December solstice.")
     return result
+
+
+_MAX_PROFILE_BYTES = 100_000
+
+
+@app.route('/api/horizon', methods=['POST'])
+def horizon_profile():
+    """
+    Read a horizon profile sent as the request body: one 'azimuth altitude'
+    point per line, as a survey spreadsheet or a Stellarium horizon file holds
+    them (commas, tabs or spaces; '#' comments; an optional header line; further
+    columns ignored). For example: curl --data-binary @skyline.txt .../api/horizon
+
+    Returns {'profile': the compact 'az:alt,...' form the other endpoints take
+    as horizon=, 'points', 'lowest', 'highest'}, or HTTP 400 with the reason
+    the text cannot be read.
+    """
+    if (request.content_length or 0) > _MAX_PROFILE_BYTES:
+        raise ApiError(f'A horizon profile file must be under {_MAX_PROFILE_BYTES // 1000} kB')
+    try:
+        profile = HorizonProfile.from_text(request.get_data(as_text=True))
+    except ValueError as err:
+        raise ApiError(str(err)) from None
+    return jsonify({'profile': profile.compact(), 'points': len(profile.azimuths),
+                    'lowest': float(profile.altitudes.min()),
+                    'highest': float(profile.altitudes.max())})
 
 
 @app.route('/api/ecliptic')

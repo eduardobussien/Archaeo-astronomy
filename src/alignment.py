@@ -5,6 +5,7 @@ import numpy as np
 import erfa
 
 from data import STARS, MONUMENTS
+from horizon import as_profile
 from precession import star_altaz, ecliptic_altaz, local_mean_sidereal_time
 from refraction import apparent_altitude
 from solar_system import body_altaz, sun_altitude
@@ -98,14 +99,15 @@ def _observed(altitude, elevation_m, refract):
 
 
 def calculate_alignments(lat, lon, year, month, day, hour, elevation_m=0.0, refract=True,
-                         calendar='gregorian'):
+                         calendar='gregorian', horizon=0.0):
     """
     Compute altitude and azimuth for every star, the Sun, Moon and planets.
 
     Stars use the long-term precession engine in precession.py; the Sun, Moon
     and planets come from solar_system.py and share the same Earth rotation.
     Altitudes include atmospheric refraction for the site's elevation unless
-    refract is False.
+    refract is False. horizon is the visible skyline, a HorizonProfile or the
+    altitude of a level horizon: an object is visible when it stands above it.
 
     Returns a dict with keys:
         jd      - Julian Date (UT1)
@@ -114,6 +116,7 @@ def calculate_alignments(lat, lon, year, month, day, hour, elevation_m=0.0, refr
         planets - {name: {altitude, azimuth, visible}} for the Sun, Moon and planets
         method  - name of the star position model
     """
+    skyline = as_profile(horizon)
     # Convert local mean solar time to UT (the user picks local time; lon/15 is the offset)
     hour_ut = hour - lon / 15.0
     jd = _date_to_jd(year, month, day, hour_ut, calendar)
@@ -121,15 +124,16 @@ def calculate_alignments(lat, lon, year, month, day, hour, elevation_m=0.0, refr
     alt, az = star_altaz(_CATALOG['ra'], _CATALOG['dec'], _CATALOG['pm_ra'],
                          _CATALOG['pm_dec'], _CATALOG['dist'], jd, lat, lon, _CATALOG['rv'])
     alt = _observed(alt, elevation_m, refract)
+    above = alt > skyline(az)
     stars_out = {
-        name: {'altitude': float(a), 'azimuth': float(z), 'visible': bool(a > 0)}
-        for name, a, z in zip(_STAR_NAMES, alt, az)
+        name: {'altitude': float(a), 'azimuth': float(z), 'visible': bool(v)}
+        for name, a, z, v in zip(_STAR_NAMES, alt, az, above)
     }
 
     planets = {}
     for name, (a, z) in body_altaz(jd, lat, lon).items():
         a = float(_observed(a, elevation_m, refract))
-        planets[name] = {'altitude': a, 'azimuth': z, 'visible': a > 0}
+        planets[name] = {'altitude': a, 'azimuth': z, 'visible': bool(a > skyline(z))}
 
     return {
         'jd': jd,
@@ -159,7 +163,7 @@ def _dawn_hours(midnights, lat, lon, sun_limit):
 
 
 def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTION,
-                         elevation_m=0.0, refract=True, calendar='gregorian'):
+                         elevation_m=0.0, refract=True, calendar='gregorian', horizon=0.0):
     """
     Find the first dawn in the target year on which star_name can be seen,
     after a dawn on which it could not.
@@ -167,8 +171,11 @@ def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTIO
     A dawn counts when, at the last moment the sky is dark enough for a star
     of this magnitude (the Sun at its limit from visibility.py), the star
     already stands at the altitude it needs to shine through the extinction
-    k (magnitudes per airmass). The star's altitude includes refraction
-    unless refract is False; the Sun's is geometric.
+    k (magnitudes per airmass), and above the skyline (horizon: a
+    HorizonProfile or the altitude of a level horizon) in its direction.
+    Extinction depends on the true altitude, so a star clearing a high ridge
+    is already bright enough. The star's altitude includes refraction unless
+    refract is False; the Sun's is geometric.
 
     The scan starts on 1 October of the previous year so that a star already
     visible on 1 January is not reported as rising that day. The year and the
@@ -192,7 +199,8 @@ def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTIO
     star_alt, star_az = star_altaz(s['ra'], s['dec'], s['pm_ra'], s['pm_dec'], s['dist'],
                                    dawn_jd, lat, lon, s['rv'])
     star_alt = _observed(star_alt, elevation_m, refract)
-    visible = has_dawn & (star_alt >= star_limit)
+    skyline_alt = as_profile(horizon)(star_az)
+    visible = has_dawn & (star_alt >= star_limit) & (star_alt > skyline_alt)
 
     rising = np.flatnonzero(visible[1:] & ~visible[:-1]) + 1
     rising = rising[rising >= first_target_day]
@@ -218,6 +226,7 @@ def find_heliacal_rising(lat, lon, year, star_name, extinction=DEFAULT_EXTINCTIO
         'sun_altitude':    round(float(sun_altitude(dawn_jd[k], lat, lon)), 2),
         'dawn_hour_local': round(float(dawn[k]), 2),
         'required_star_altitude': round(star_limit, 2),
+        'horizon_altitude': round(float(skyline_alt[k]), 2),
         'extinction':      extinction,
     }
 

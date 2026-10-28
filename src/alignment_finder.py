@@ -16,6 +16,7 @@ import numpy as np
 
 from alignment import _date_to_jd, _jd_to_date, _observed
 from data import STARS
+from horizon import as_profile
 from precession import mean_obliquity, star_altaz, star_declination
 from refraction import true_altitude
 from solar_system import sun_altaz
@@ -129,10 +130,16 @@ def find_axis_crossings(lat, lon, star_name, azimuth, event='rise', horizon=0.0,
     Years (astronomical numbering) in which the star rose or set at the given
     azimuth, each with the drift of its rising point and a night to see it.
 
+    horizon is a HorizonProfile or the altitude of a level horizon. A star
+    rises on the axis when its path passes through the skyline there, so only
+    the skyline's altitude at the axis matters; the curve shows where the star
+    meets a horizon of that altitude.
+
     Returns {'found', 'crossings', 'closest', 'latest', 'curve'} or, if the
     star never meets that horizon in the period, {'found': False,
     'reason': 'never_crosses_horizon'}.
     """
+    horizon = float(as_profile(horizon)(azimuth))
     years = np.arange(first_year, last_year + 1)
     summary = _axis_summary(years, event_azimuths(lat, star_name, years, event, horizon,
                                                   elevation_m, refract), azimuth)
@@ -167,6 +174,34 @@ def _sun_centre_altitude(horizon, limb, elevation_m, refract):
     return limb_altitude + _LIMB_OFFSET[limb]
 
 
+_SKYLINE_SAMPLES = 120   # steps across the part of the morning (or evening) a skyline can hide
+
+
+def _bisect_hours(midnights, lo, hi, height, rising):
+    """
+    Local hours between lo and hi (one per day) at which height(jd), the Sun
+    above its target in degrees, changes sign: before the event lies at lo
+    (below for a rising, above for a setting), after it at hi.
+    """
+    for _ in range(20):
+        mid = (lo + hi) / 2.0
+        later = (height(midnights + mid / 24.0) < 0.0) == rising
+        lo = np.where(later, mid, lo)
+        hi = np.where(later, hi, mid)
+    return (lo + hi) / 2.0
+
+
+def _sun_crosses(midnights, lat, lon, h0, rising):
+    """(local hours, has_event): when the Sun's centre rises (in the morning)
+    or sets (in the evening) through the geometric altitude h0 each day."""
+    lo = np.full_like(midnights, 0.0 if rising else 12.0)
+    hi = lo + 12.0
+    alt_lo, alt_hi = (sun_altaz(midnights + h / 24.0, lat, lon)[0] for h in (lo, hi))
+    has_event = (alt_lo < h0) & (alt_hi > h0) if rising else (alt_lo > h0) & (alt_hi < h0)
+    hours = _bisect_hours(midnights, lo, hi, lambda jd: sun_altaz(jd, lat, lon)[0] - h0, rising)
+    return hours, has_event
+
+
 def sun_events_in_year(lat, lon, year, event='rise', horizon=0.0, elevation_m=0.0, refract=True,
                        limb='upper', calendar='gregorian'):
     """
@@ -174,21 +209,49 @@ def sun_events_in_year(lat, lon, year, event='rise', horizon=0.0, elevation_m=0.
     bisection over all days at once: (UT Julian Dates, azimuths in degrees),
     NaN on days without one (polar day or night). limb is which part of the
     disc touches the horizon: 'upper' is the first (or last) gleam.
+
+    horizon is a HorizonProfile or the altitude of a level horizon. Over a
+    skyline, sunrise is the first moment the limb clears it and sunset the
+    last: the Sun can slip behind a peak and show again in a notch (a double
+    sunset), and the last gleam is the one that counts. Before the Sun
+    reaches the skyline's lowest point it is hidden everywhere, and once past
+    the highest it is clear everywhere, so the search samples the time
+    between and bisects the first (or last) change it finds. A notch narrower
+    than one sample, a few minutes of the Sun's travel at most, can be missed.
     """
-    h0 = _sun_centre_altitude(horizon, limb, elevation_m, refract)
+    skyline = as_profile(horizon)
     first = _date_to_jd(year, 1, 1, -lon / 15.0, calendar)
     midnights = first + np.arange(round(_date_to_jd(year + 1, 1, 1, -lon / 15.0, calendar) - first))
     rising = event == 'rise'
-    lo = np.full_like(midnights, 0.0 if rising else 12.0)
-    hi = lo + 12.0
-    alt_lo, alt_hi = (sun_altaz(midnights + h / 24.0, lat, lon)[0] for h in (lo, hi))
-    has_event = (alt_lo < h0) & (alt_hi > h0) if rising else (alt_lo > h0) & (alt_hi < h0)
-    for _ in range(20):
-        mid = (lo + hi) / 2.0
-        later = (sun_altaz(midnights + mid / 24.0, lat, lon)[0] < h0) == rising
-        lo = np.where(later, mid, lo)
-        hi = np.where(later, hi, mid)
-    jd = midnights + (lo + hi) / 48.0
+
+    def centre(h):
+        return _sun_centre_altitude(h, limb, elevation_m, refract)
+
+    lowest, has_event = _sun_crosses(midnights, lat, lon, centre(skyline.altitudes.min()), rising)
+    if skyline.is_level:
+        hours = lowest
+    else:
+        highest, clears_all = _sun_crosses(midnights, lat, lon, centre(skyline.altitudes.max()), rising)
+        highest = np.where(clears_all, highest, 12.0)          # noon, if it never clears every peak
+        start, end = (lowest, highest) if rising else (highest, lowest)
+        grid = start[:, None] + (end - start)[:, None] * np.linspace(0.0, 1.0, _SKYLINE_SAMPLES)
+
+        def height(jd):
+            alt, az = sun_altaz(np.ravel(jd), lat, lon)
+            return np.reshape(alt - centre(skyline(az)), np.shape(jd))
+
+        clear = height(midnights[:, None] + grid / 24.0) >= 0.0
+        has_event &= clear.any(axis=1)
+        if rising:      # the first sample with the limb clear, and the one before
+            k = np.maximum(np.argmax(clear, axis=1), 1)
+            before, after = k - 1, k
+        else:           # the last sample with the limb clear, and the one after
+            k = np.minimum(_SKYLINE_SAMPLES - 1 - np.argmax(clear[:, ::-1], axis=1), _SKYLINE_SAMPLES - 2)
+            before, after = k, k + 1
+        days = np.arange(len(midnights))
+        hours = _bisect_hours(midnights, grid[days, before], grid[days, after], height, rising)
+
+    jd = midnights + hours / 24.0
     az = sun_altaz(jd, lat, lon)[1]
     return np.where(has_event, jd, np.nan), np.where(has_event, az, np.nan)
 
@@ -204,6 +267,10 @@ def find_sun_alignment(lat, lon, azimuth, event='rise', year=-2499, horizon=0.0,
     'solstice': which solstice lies on the axis's side of east (or west) and
     the years in which it fell exactly on the axis, as find_axis_crossings
     reports for stars, each with that year's solstice sunrise to show.
+
+    horizon is a HorizonProfile or the altitude of a level horizon: the days
+    and solstices follow the whole skyline, while the solstice's drift over
+    the centuries, like a star's, depends only on the skyline at the axis.
     """
     jd, az = sun_events_in_year(lat, lon, year, event, horizon, elevation_m, refract, limb, calendar)
     offset = az - azimuth
@@ -229,7 +296,8 @@ def find_sun_alignment(lat, lon, azimuth, event='rise', year=-2499, horizon=0.0,
     years = np.arange(first_year, last_year + 1)
     epochs = np.array([_date_to_jd(int(y), 7, 2, 0.0) for y in years])
     declination = mean_obliquity(epochs) * (1.0 if north else -1.0)
-    rise = horizon_azimuth(declination, lat, _sun_centre_altitude(horizon, limb, elevation_m, refract))
+    at_axis = float(as_profile(horizon)(azimuth))
+    rise = horizon_azimuth(declination, lat, _sun_centre_altitude(at_axis, limb, elevation_m, refract))
     summary = _axis_summary(years, rise if event == 'rise' else 360.0 - rise, azimuth)
     if summary is not None:
         for c in summary['crossings']:

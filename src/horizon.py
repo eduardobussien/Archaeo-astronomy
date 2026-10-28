@@ -10,6 +10,9 @@ Profiles arrive as text, one point per line, as a survey spreadsheet or a
 Stellarium horizon file holds them ('120.5, 2.3', '120.5<tab>2.3' or
 '120.5 2.3'; '#' starts a comment, an optional first line names the columns
 and further columns are ignored), or compactly in a URL as 'az:alt,az:alt,...'.
+
+Everywhere the app takes a horizon it takes either a profile or a number, the
+altitude of a level horizon (as_profile turns one into the other).
 """
 import re
 
@@ -47,6 +50,17 @@ class HorizonProfile:
             return np.full_like(np.asarray(azimuth, dtype=float), self.altitudes[0])
         return np.interp(np.asarray(azimuth, dtype=float) % 360.0,
                          self.azimuths, self.altitudes, period=360.0)
+
+    @property
+    def is_level(self):
+        """True when the skyline is at the same altitude in every direction."""
+        return bool(np.ptp(self.altitudes) == 0.0)
+
+    def outline(self, step=1.0):
+        """(azimuths, altitudes) tracing the skyline once round, through every
+        surveyed point and every step degrees between, for drawing."""
+        az = np.append(np.union1d(np.arange(0.0, 360.0, step), self.azimuths), 360.0)
+        return az, self(az)
 
     def compact(self):
         """The profile as 'az:alt,az:alt,...', for a URL."""
@@ -88,3 +102,8 @@ class HorizonProfile:
         if not az:
             raise ValueError('The horizon profile has no points')
         return cls(az, alt)
+
+
+def as_profile(horizon):
+    """A HorizonProfile as given, or a level one at the altitude of a number."""
+    return horizon if isinstance(horizon, HorizonProfile) else HorizonProfile([0.0], [horizon])

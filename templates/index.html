@@ -308,6 +308,15 @@
 
     /* ── Heliacal Rising ── */
     .hr-desc { font-size:0.72rem; color:#8b949e; margin:6px 0 10px; line-height:1.45; }
+    #hz-status.hz-error { color:#f85149; }
+    #hz-details summary { font-size:0.75rem; color:#58a6ff; cursor:pointer; }
+    #hz-text {
+      width:100%; margin-top:8px; resize:vertical;
+      background:#161b22; border:1px solid #30363d; border-radius:6px;
+      color:#c9d1d9; font:0.75rem/1.4 Consolas, monospace; padding:6px 8px; outline:none;
+    }
+    #hz-text:focus { border-color:#f0c040; }
+    .hz-buttons { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
     #hr-btn, #af-btn {
       width:100%; margin-top:10px; padding:8px;
       background:#1f6feb; border:none; border-radius:4px;
@@ -416,6 +425,24 @@
   </div>
 
   <div id="monument-note" class="monument-note" style="display:none"></div>
+
+  <!-- Horizon profile -->
+  <div>
+    <div class="section-label">Horizon</div>
+    <p class="hr-desc" id="hz-status"></p>
+    <details id="hz-details">
+      <summary title="A surveyed skyline: hills hide what rises behind them, and sunrise waits until the Sun clears them">Load a horizon profile</summary>
+      <textarea id="hz-text" rows="5" spellcheck="false"
+        placeholder="One point per line: azimuth (° true) and altitude (°)&#10;0 1.2&#10;90 3.5&#10;180 0.8&#10;270 2.0"></textarea>
+      <div class="hz-buttons">
+        <button class="anim-chip" id="hz-use" onclick="useHorizonProfile()">Use profile</button>
+        <button class="anim-chip" onclick="document.getElementById('hz-file').click()"
+          title="A text or CSV file of azimuth and altitude pairs, such as a survey export or a Stellarium horizon file">Open file</button>
+        <button class="anim-chip" onclick="setHorizonProfile(null)">Level horizon</button>
+      </div>
+      <input type="file" id="hz-file" accept=".txt,.csv,.tsv,.dat,text/plain" hidden />
+    </details>
+  </div>
 
   <hr />
 
@@ -933,6 +960,8 @@
     const noteEl = document.getElementById('monument-note');
 
     customLoc.style.display = site === '' ? 'block' : 'none';
+    // A skyline belongs to one place
+    if (horizonProfile) setHorizonProfile(null, false);
     const info = SITES[site];
     noteEl.replaceChildren();
     noteEl.style.display = info ? 'block' : 'none';
@@ -984,6 +1013,63 @@
 
   // ── Main fetch & render ──
   document.getElementById('view-btn').addEventListener('click', fetchAndRender);
+
+  // ── Horizon profile ──
+  // {profile, points, lowest, highest} from /api/horizon, or null for a level horizon.
+  // The sky, the heliacal rising and the alignment searches all send it.
+  let horizonProfile = null;
+
+  function horizonParams() {
+    return horizonProfile ? { horizon: horizonProfile.profile } : {};
+  }
+
+  function showHorizonStatus(text, isError = false) {
+    const el = document.getElementById('hz-status');
+    el.textContent = text;
+    el.classList.toggle('hz-error', isError);
+  }
+
+  function setHorizonProfile(info, redraw = true) {
+    horizonProfile = info;
+    const axisHorizon = document.getElementById('af-horizon');
+    if (!info && axisHorizon.disabled) {        // back to the monument's own horizon along its axis
+      const site = SITES[document.getElementById('site-select').value];
+      axisHorizon.value = site && site.horizon_deg !== null ? +site.horizon_deg.toFixed(2) : 0;
+    }
+    axisHorizon.disabled = !!info;
+    axisHorizon.title = info ? 'Taken from the horizon profile at the axis' : '';
+    showHorizonStatus(info
+      ? `Skyline of ${info.points} points, ${info.lowest}° to ${info.highest}° high. Objects behind it ` +
+        'count as hidden, and sunrise, sunset and heliacal risings wait until they clear it.'
+      : 'Level horizon. Load a surveyed skyline to hide what the hills hide.');
+    if (redraw && lastChartData) fetchAndRender();
+  }
+
+  async function useHorizonProfile() {
+    try {
+      const r = await fetch('/api/horizon', {
+        method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: document.getElementById('hz-text').value,
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error || `Request failed (${r.status})`);
+      setHorizonProfile(body);
+    } catch (e) {
+      const kept = horizonProfile ? ' The previous skyline is still in use.' : '';
+      showHorizonStatus(e.message.replace(/\.?$/, '.') + kept, true);
+    }
+  }
+
+  document.getElementById('hz-file').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    file.text().then(text => {
+      document.getElementById('hz-text').value = text;
+      e.target.value = '';                       // choosing the same file again reloads it
+      useHorizonProfile();
+    });
+  });
+  setHorizonProfile(null, false);
 
   // ── Heliacal Rising Finder ──
   const HR_MONTHS = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1047,7 +1133,8 @@
     btn.textContent = 'SEARCHING…';
 
     const extinction = document.getElementById('hr-extinction').value;
-    const query = new URLSearchParams({ star, year, extinction, calendar: currentCalendar(), ...locationParams() });
+    const query = new URLSearchParams({ star, year, extinction, calendar: currentCalendar(),
+                                        ...locationParams(), ...horizonParams() });
     try {
       displayHeliacalResult(await getJson(`/api/heliacal?${query}`), star);
     } catch (e) {
@@ -1074,7 +1161,7 @@
         <div class="hr-card-star">${star}</div>
         <div class="hr-card-date">${dateStr} at ${formatHour(data.dawn_hour_local)} local</div>
         <div class="hr-card-stats">
-          <span title="Altitude the star must reach to be seen">Star alt: <strong>${data.star_altitude}°</strong> (needs ${data.required_star_altitude}°)</span>
+          <span title="Altitude the star must reach to shine through the haze, and the skyline behind it">Star alt: <strong>${data.star_altitude}°</strong> (needs ${data.required_star_altitude}°${data.horizon_altitude > 0 ? `, skyline ${data.horizon_altitude}°` : ''})</span>
           <span title="The sky is dark enough while the Sun is this low">Sun alt: <strong>${data.sun_altitude}°</strong></span>
         </div>
         ${note ? `<div class="hr-card-note">${note}</div>` : ''}
@@ -1159,13 +1246,16 @@
       to: YEAR_MAX,
       calendar: currentCalendar(),
       ...locationParams(),
+      ...horizonParams(),
     });
     if (star === 'Sun') {
       query.set('year', document.getElementById('year-slider').value);
       query.set('limb', document.getElementById('af-limb').value);
     }
     try {
-      displayAlignmentResult(await getJson(`/api/alignment?${query}`));
+      const data = await getJson(`/api/alignment?${query}`);
+      if (horizonProfile) document.getElementById('af-horizon').value = +data.horizon.toFixed(2);
+      displayAlignmentResult(data);
       const csv = document.createElement('a');
       csv.className = 'csv-link';
       csv.href = `/api/alignment?${query}&format=csv`;
@@ -1405,6 +1495,7 @@
       hour:  document.getElementById('hour-slider').value,
       calendar,
       ...locationParams(),
+      ...horizonParams(),
     });
 
     return getJson(`/api/stars?${query}`, request.signal)
@@ -1844,8 +1935,35 @@
   document.getElementById('sl-az').addEventListener('keydown', e => { if (e.key === 'Enter') drawSightline(); });
   document.getElementById('sl-tol').addEventListener('keydown', e => { if (e.key === 'Enter') drawSightline(); });
 
+  // The ground: filled from the skyline down to the rim of the chart, drawn
+  // first so that stars hidden behind the hills still show faintly over it.
+  function makeSkylineTraces(horizon, rim) {
+    if (!horizon) return [];
+    const az  = horizon.outline.map(([a]) => a);
+    const alt = horizon.outline.map(([, h]) => h);
+    return [
+      {
+        type: 'scatterpolar',
+        r: [...alt.map(h => 90 - h), ...alt.map(() => rim)],
+        theta: [...az, ...[...az].reverse()],
+        mode: 'lines', fill: 'toself', fillcolor: 'rgba(52, 40, 26, 0.92)',
+        line: { width: 0 }, hoverinfo: 'skip', showlegend: false,
+      },
+      {
+        type: 'scatterpolar',
+        r: alt.map(h => 90 - h), theta: az,
+        mode: 'lines', line: { color: '#a8834f', width: 1.5 },
+        customdata: alt,
+        hovertemplate: 'Skyline: %{customdata:.2f}° at %{theta:.1f}°<extra></extra>',
+        showlegend: false,
+      },
+    ];
+  }
+
   function renderChart(data) {
     lastChartData = data;
+    // A skyline below 0° (the sea seen from a cliff) widens the chart past the horizon ring
+    const rim = data.horizon ? Math.max(90, ...data.horizon.outline.map(([, h]) => 90 - h)) : 90;
     const magLimit = parseFloat(document.getElementById('mag-slider').value);
     const entries = Object.entries(data.stars).filter(([, s]) => s.magnitude <= magLimit);
     const visible = entries.filter(([, s]) => s.visible);
@@ -1881,6 +1999,7 @@
     });
 
     const traces = [
+      ...makeSkylineTraces(data.horizon, rim),
       ...makeEclipticTrace(eclipticOn ? eclipticData : null),
       ...makeConstellationLines(data.stars, magLimit),
       ...makePlanetTraces(data.planets || {}, labelsOn, planetsOn, moonCaveat(data.meta)),
@@ -1940,7 +2059,7 @@
     const layout = {
       polar: {
         radialaxis: {
-          range: [0, 90],
+          range: [0, rim],
           tickvals: [30, 60, 90],
           ticktext: ['60°', '30°', 'Horizon'],
           tickfont: { color: '#8b949e', size: 9 },
