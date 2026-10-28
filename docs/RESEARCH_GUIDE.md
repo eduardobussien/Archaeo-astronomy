@@ -119,7 +119,7 @@ Sirius: 2484 BC, drifting -0.455 deg per century
 [(1, 17), (11, 22)]
 ```
 
-Any request can return a CSV file instead with `format=csv`. With pandas, `pd.read_csv(url, comment='#')` reads it, skipping the lines at the top that record how it was made. The full list of endpoints and parameters is in the README.
+Any request can return a CSV file instead with `format=csv`. With pandas, `pd.read_csv(url, comment='#')` reads it, skipping the lines at the top that record how it was made. The full list of endpoints and parameters is in [API.md](API.md).
 
 ## 10. Reporting a result
 

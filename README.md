@@ -1,41 +1,70 @@
 # Archaeo-Astronomy Sky Explorer
 
 [![tests](https://github.com/eduardobussien/Archaeo-astronomy/actions/workflows/tests.yml/badge.svg)](https://github.com/eduardobussien/Archaeo-astronomy/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
 
-An interactive web app for reconstructing the ancient night sky at historical sites, accounting for stellar proper motion and axial precession over thousands of years.
+**Tests claims that ancient monuments were aligned to the stars, by recomputing the sky over any site on any night from 12,000 BC to today with research-grade astronomy, checked against NASA JPL and the US Naval Observatory.**
 
-![Sky chart at Giza, 2500 BC](docs/screenshot_hero.png)
+![How high Orion's Belt climbed over Giza each night, 12,000 BC to today](docs/orion_belt_giza.png)
 
----
-
-## Features
-
-- **Polar sky chart:** North-up, horizon-to-zenith radial view powered by Plotly.js
-- **60 historically significant stars** with proper motion applied back to any epoch
-- **13 ancient monument sites** (Giza, Stonehenge, Angkor Wat, Göbekli Tepe, Machu Picchu, and more) with known astronomical orientations
-- **Custom coordinates:** enter any latitude/longitude for off-catalog sites
-- **Magnitude limit slider:** filter stars by brightness (adjustable from 0 to 6.5)
-- **Planet positions:** Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn in alt-az
-- **Ecliptic overlay:** dotted great circle showing the path of the Sun/Moon/planets
-- **Constellation lines:** stick figures connecting stars within each constellation
-- **Star/planet labels:** toggle name labels on all objects
-- **Time animation:** step or play forward/backward in 1h / 1d / 1mo / 1yr increments
-- **Precession sweep:** watch the North Celestial Pole trace its 26,000-year arc; animate in 10yr / 100yr / 1kyr steps
-- **Heliacal rising finder:** find the exact date a star first appears at dawn after a period of solar conjunction
-- **URL permalink:** every state (site or your own coordinates, date, toggles) is encoded in the URL; share or bookmark any view. It also carries an alignment investigation (axis, horizon, star or Sun, event), and if a search was run, opening the link runs it again
-- **Your own site:** enter coordinates and an axis azimuth, and the axis is drawn on the sky like a monument's. [docs/RESEARCH_GUIDE.md](docs/RESEARCH_GUIDE.md) covers measuring the axis (true, not magnetic, north) and the horizon, avoiding chance alignments, using the API from Python, and reporting a result
-- **Horizon profile:** paste or open a surveyed skyline; it is drawn on the sky, and visibility, sunrise, sunset and heliacal risings follow it
-- **CSV export:** download the sky on screen or an alignment search as a CSV file that records how it was made
-- **Gregorian or Julian dates:** read dates the way modern astronomers or historical sources give them
-- **Alignment finder:** for a monument's axis, find the years when a star rose or set exactly along it, or the days (and solstice eras) when the Sun did, then jump to that moment
-
-![Heliacal rising result for Sirius at Giza](docs/screenshot_heliacal.png)
+*A claim, tested. The "Orion correlation" theory (Bauval and Gilbert 1994) ties the Giza pyramids to about 10,500 BC, when Orion's Belt stood at its lowest. The app confirms the astronomy (the lowest point fell around 10,600 BC) but shows that this is simply the bottom of a 26,000-year cycle that happens at some date for every star. The older proposal fits the pyramid's own era: in 2560 BC the Belt culminated at 45 degrees, about the slope of the King's Chamber's southern shaft. Made by [`scripts/orion_belt_figure.py`](scripts/orion_belt_figure.py).*
 
 ---
 
-## How to run locally
+## What it does
 
-**1. Clone the repo and create a virtual environment**
+- **Rebuilds the sky** over any place on Earth, at any local time from 12,000 BC to today: 60 bright stars, the Sun, Moon and planets, in an interactive chart.
+- **Finds alignments.** Give it a monument's axis and it finds the years a star rose or set along it, or the days the Sun did, then jumps to that moment.
+- **Answers calendar questions,** such as the first dawn Sirius became visible each year (its *heliacal rising*, which marked the Egyptian New Year).
+- **Handles real landscapes.** Load a surveyed skyline and hills hide what is behind them; sunrise waits until the Sun clears them.
+- **Shows its work.** Every answer is reproducible through a JSON and CSV API, every accuracy figure is held by an automated test (722 in all), and every source is cited.
+
+![The sky over the Pyramid of the Sun, Teotihuacan, at sunset on 30 April AD 150](docs/screenshot_teotihuacan.png)
+
+*The web app reproducing a published result: on 30 April the Sun sets exactly along the axis of the Pyramid of the Sun at Teotihuacan (yellow line), as Šprajc (2000) found. Its other sunset date, 13 August, splits the year into 105 and 260 days, and 260 days is the length of the Mesoamerican ritual calendar.*
+
+---
+
+## How it works
+
+Every claim about an ancient alignment comes down to one question: *where in that site's sky was this star on that night?* Answering it takes four steps.
+
+1. **Start from a star catalogue.** Each star has a position on the sky (its *right ascension* and *declination*, the sky's version of longitude and latitude) measured in the year 2000, plus how fast it drifts across the sky (*proper motion*) and towards or away from us (*radial velocity*). The app moves each star along its path through space to the date asked for.
+
+2. **Correct for precession.** The Earth's axis wobbles like a slowing spinning top, tracing a circle every 26,000 years. Over millennia that wobble moves every star relative to the poles and the equator: around 2800 BC the pole star was Thuban, not Polaris, and stars rose at points on the horizon several degrees from where they rise today. That is exactly the quantity alignment claims depend on, so precession is the heart of the engine. The standard formulas (IAU 2006) are fitted to a few centuries of observations and drift by a third of a degree by 10,500 BC. This app uses the long-term model of **Vondrák, Capitaine & Wallace (2011)**, valid for 200,000 years either side of today, through **ERFA**, the C library of the International Astronomical Union's official routines (the same one astropy uses).
+
+3. **Turn the sky into the local view.** A coordinate transform rotates the star from the sky's frame into the observer's: how far it is around the horizon from north (*azimuth*) and how high above it (*altitude*). That rotation depends on the site's latitude and longitude and on how far the Earth has turned (the *Earth Rotation Angle*). One subtle term, the *CIO locator*, is usually taken from a series that diverges in deep time; the app integrates it from its definition instead, which keeps it correct to 0.1 arcminutes back to 4000 BC where the standard series is off by half a degree.
+
+4. **Account for what an observer actually sees.** The air bends light near the horizon (*refraction*, about half a degree), the visible horizon may be raised by hills, and a star must climb high enough and the sky must be dark enough for it to be seen. Each of these is modelled from published research.
+
+The Sun, Moon and planets follow the same last two steps, but first need the slowing of the Earth's rotation over the centuries (*Delta T*, about 16.6 hours by 2500 BC). The full technical account is in [docs/ENGINE.md](docs/ENGINE.md).
+
+**How it is checked.** Stars are compared with astropy, an independent implementation; the Sun, Moon and planets with NASA JPL's DE441 ephemeris; sunrise and sunset times with the US Naval Observatory; and monument results with the publications they come from. Highlights from [docs/ACCURACY.md](docs/ACCURACY.md):
+
+| Question | Accuracy |
+|---|---|
+| Where was a star at a given local time? | Within 0.7 arcminutes of astropy back to 1000 BC |
+| What time was sunrise or sunset? | Within 33 seconds of the US Naval Observatory (it rounds to the minute) |
+| Where were the Sun, Moon and planets? | Within 0.2 degrees of NASA JPL back to 3000 BC |
+| On which days did the Sun set along Teotihuacan's axis? | The published dates exactly (30 April, 13 August) |
+
+---
+
+## Tech stack
+
+- **Python 3.12**, **NumPy** (every calculation is vectorized: a whole year of sunrises or 14,000 years of a star's rising point in one pass)
+- **pyerfa**, the Python binding of ERFA, for precession, Earth rotation and the solar system theories
+- **Flask** for the web server and JSON/CSV API
+- **Plotly.js** for the interactive sky chart, in a single-page front end with no build step
+- **Matplotlib** for static figures and chart export
+- **pytest**, with **astropy** as an independent reference; **GitHub Actions** runs the suite on Ubuntu and Windows on every push
+
+---
+
+## Quick start
+
+Requires Python 3.12 and git.
 
 ```bash
 git clone https://github.com/eduardobussien/Archaeo-astronomy.git
@@ -43,227 +72,161 @@ cd Archaeo-astronomy
 python -m venv venv
 ```
 
-**2. Activate the virtual environment**
+Activate the environment. On Windows (PowerShell):
 
-On Windows:
 ```bash
 venv\Scripts\activate
 ```
 
-On macOS / Linux:
+(If PowerShell says running scripts is disabled, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or use Command Prompt, where the same command works.)
+
+On macOS or Linux:
+
 ```bash
 source venv/bin/activate
 ```
 
-**3. Install dependencies**
+Install the dependencies (pinned versions):
 
 ```bash
 pip install -r requirements.txt
 ```
 
-**4. Run the Flask server**
+### Run the web app
 
 ```bash
 python app.py
 ```
 
-Debug mode (auto-reload and the in-browser debugger) is off by default, because the debugger can run code sent from the browser. To turn it on while developing, set `FLASK_DEBUG=1` first (`set FLASK_DEBUG=1` in Windows cmd, `$env:FLASK_DEBUG=1` in PowerShell, `export FLASK_DEBUG=1` on macOS / Linux).
+Then open http://127.0.0.1:5000, choose a site and press **View the Sky**. The **Try This** cards in the sidebar load ready-made examples.
 
-**5. Open in your browser**
+### Run from the command line
 
-Navigate to `http://127.0.0.1:5000`
+A star table for a site and date, with any stars lined up on the monument's axis:
 
----
-
-## Project structure
-
-```
-app.py              Flask server and API endpoints
-src/
-  alignment.py      Site and date calculations (star table, ecliptic, heliacal rising)
-  precession.py     Long-term precession, Earth rotation and proper motion engine
-  solar_system.py   Sun, Moon and planets from ERFA's analytic theories
-  timescales.py     Delta T (difference between uniform time and Earth rotation time)
-  refraction.py     Atmospheric refraction, scaled by the site's elevation
-  visibility.py     How dark the sky must be, and how high a star, for it to be seen at dawn
-  alignment_finder.py  When a star rose or set along a monument's axis
-  horizon.py        Horizon profiles: the skyline's altitude in every direction
-  data.py           Star catalog (60 stars: J2000 positions, proper motions, radial velocities) and monument list
-  visualize.py      Static chart export helpers
-templates/
-  index.html        Single-page app, all UI and Plotly.js rendering
-tests/
-  test_precession.py    Stars: astropy, pole stars, Orion's Belt, Sirius
-  test_solar_system.py  Sun, Moon, planets: JPL DE441 and astropy; Delta T: NASA table
-  test_alignment.py     Year labels and calendar conversion
-  test_api.py           Endpoint responses and input validation
-  test_refraction.py    Refraction: horizon value, ERFA model, standard atmosphere
-  test_visibility.py    Heliacal visibility: Schaefer and IMCCE criteria for Sirius
-  test_alignment_finder.py  Axis crossings, checked against the engine; sunrise times: USNO
-  test_monuments.py     Monument data against the publications it comes from
-  test_horizon.py       Horizon profiles: reading, validation, and the sky, sunrise and heliacal rising over a skyline
-  data/                 Reference values used by the tests (JPL DE441, US Naval Observatory)
-docs/
-  SOURCES.md            Every source behind the engine and the monument data
-  ACCURACY.md           How accurate each answer is, by era, and what it was checked against
-  RESEARCH_GUIDE.md     Investigating your own site: measuring it, avoiding pitfalls, the API from Python
-requirements.txt        Packages the app needs
-requirements-dev.txt    Plus the test tools (astropy, pytest)
+```bash
+python src/alignment.py --monument Giza --year -2559 --month 3 --day 20 --hour 21.5
 ```
 
----
+The same sky as a chart image:
 
-## Calculation engine
+```bash
+python src/visualize.py --monument Giza --year -2559 --hour 21.5 --save giza_2560bc.png
+```
 
-How far to trust each answer, era by era and with the reference it was checked against, is collected in [docs/ACCURACY.md](docs/ACCURACY.md).
+Years use astronomical numbering, so `-2559` is 2560 BC (year 0 is 1 BC). `python src/alignment.py --list-monuments` lists the 13 sites.
 
-Star positions use a single model at every epoch (`src/precession.py`):
-
-- **Precession:** Vondrák, Capitaine & Wallace (2011), valid to +/-200,000 years. The standard IAU 2006 polynomials are fitted to a few centuries of observations and drift by a third of a degree by 10,500 BC.
-- **Earth rotation:** hour angles come from the Earth Rotation Angle, which is linear in UT1, measured from the Celestial Intermediate Origin. The CIO locator `s` is integrated numerically from the long-term pole, because the IAU 2006 series for `s` diverges beyond a few millennia.
-- **Space motion:** each star moves in a straight line through space (`erfa.pmsafe`) from its J2000 position, using its proper motion and its radial velocity from [SIMBAD](https://simbad.cds.unistra.fr/). The radial velocity matters for nearby fast stars: an approaching star was farther away in the past and crossed the sky more slowly. Without it Alpha Centauri would be 2.2 degrees out of place at 10,500 BC, and Altair, Sirius and Procyon 0.07 to 0.14 degrees.
-- **Binary stars:** over millennia a binary moves with its centre of mass, not with the orbital wobble of one component. Alpha Centauri uses the barycentric motion of Kervella et al. (2016). Sirius keeps its Hipparcos values, which the orbit of Bond et al. (2017) confirms are barycentric: they predict Sirius B's Gaia proper motion to within about 20 mas/yr.
-
-The engine computes geometric mean places: nutation and aberration (each under 21 arcseconds) are not applied.
-
-### Atmospheric refraction
-
-The air bends light, so everything near the horizon appears higher than it geometrically is: about 34 arcminutes at the horizon, falling to zero overhead. That shifts when and where objects appear to rise, which is exactly what alignment claims depend on. Displayed altitudes use the Saemundsson (1986) formula, which agrees with ERFA's refraction model to within 0.15 arcminutes above 10 degrees. Refraction scales with air pressure, which is taken from each site's elevation using the standard atmosphere: at Tiwanaku (3,850 m) it is 38% weaker than at sea level. Temperature and weather also change refraction near the horizon by a few arcminutes; standard conditions (10 C) are assumed. The API returns geometric altitudes with `refraction=0`.
-
-The star engine is checked in `tests/` against astropy, an independent implementation, for all 60 stars: they agree to within 0.7 arcminutes at every era from AD 2000 back to 1000 BC, most of it from nutation and aberration, which astropy applies and this engine leaves out. It is also checked against known pole stars (Thuban around 2830 BC, Vega around 12,000 BC), against the lowest culmination of Orion's Belt near 10,500 BC, and against the Sothic heliacal rising of Sirius in 2781 BC.
-
-Astropy cannot serve as a reference before about 1000 BC, and the reason matters to anyone computing ancient skies with it. Turning the Earth's rotation into star positions needs the CIO locator `s`, which the IAU 2006 standard (and so astropy, and other software using the standard IAU 2006 routines) takes from a polynomial series fitted near the present. `s` is defined by an integral along the path of the celestial pole, and integrating that definition with IAU 2006's own pole shows how far the series drifts (arcminutes):
-
-| Era | `s` from its definition (IAU 2006 pole) | This app | IAU 2006 series |
-|---|---|---|---|
-| 1000 BC | -16.16 | -16.16 | -16.49 |
-| 2000 BC | -37.92 | -37.93 | -40.29 |
-| 3000 BC | -73.06 | -73.08 | -84.12 |
-| 4000 BC | -124.00 | -124.06 | -162.68 |
-
-At 3000 BC the series puts every star about 10 arcminutes out of place, a third of the Moon's width, and at 4000 BC more than half a degree. This app integrates `s` from its definition along the long-term pole instead, and a test holds it to the integral above to within 0.1 arcminutes, back to 4000 BC.
-
-### Sun, Moon and planets
-
-The Earth's rotation has slowed over the millennia, so clock time (UT1, which follows the rotation) drifts away from the uniform time (TT) that orbital theories need. The difference, Delta T, is about 16.6 hours at 2500 BC. `src/timescales.py` uses the Espenak & Meeus (2006) expressions based on Morrison & Stephenson (2004); ignoring it would put the Moon about 8 degrees out of place at 2500 BC.
-
-Positions come from ERFA's analytic theories (`epv00` for the Earth, `plan94` for the planets, `moon98` for the Moon), are rotated into the local sky by the same engine as the stars, and include the Moon's parallax. Measured against JPL's DE441 ephemeris on the first of every month (at the same instant of uniform time), the largest error in each era, in degrees, is:
-
-| Era | Sun | Moon | Mercury | Venus | Mars | Jupiter | Saturn |
-|---|---|---|---|---|---|---|---|
-| 9998 BC | 0.30 | 1.75 | 0.47 | 0.51 | 0.18 | 1.23 | 1.47 |
-| 7001 BC | 0.13 | 1.02 | 0.26 | 0.24 | 0.11 | 0.76 | 0.91 |
-| 5001 BC | 0.06 | 0.44 | 0.11 | 0.10 | 0.04 | 0.10 | 0.70 |
-| 3001 BC | 0.02 | 0.17 | 0.03 | 0.06 | 0.04 | 0.07 | 0.19 |
-| 1001 BC | 0.005 | 0.04 | 0.01 | 0.02 | 0.01 | 0.03 | 0.11 |
-| AD 1 to today | 0.002 | 0.02 | 0.003 | 0.003 | 0.009 | 0.015 | 0.055 |
-
-The Moon's disc is about 0.5 degrees wide. From about 3000 BC on, every body is within 0.2 degrees. Earlier, the analytic theories (tuned to recent millennia) let the Moon, Jupiter and Saturn drift by 1 to 2 degrees. The Sun's declination, which sets where it rises, stays within 0.1 degrees in every era. Horizons provides the Sun and planets only from 9999 BC, so the app's last two millennia (to 12,000 BC) are not checked against it. The tests check every era in the table, and those between, with JPL's values in `tests/data/de441_moon_planets.json`.
-
-Delta T itself is measured only from 720 BC, the earliest dated eclipse records; before that it is extrapolated, and uncertain by hours (see [What the Earth's rotation does and does not affect](#what-the-earths-rotation-does-and-does-not-affect)).
-
-Far from the present, `epv00`'s orbital plane drifts off the true ecliptic, so in 9000 BC its Sun reached only +24.02 / -23.97 degrees of declination where DE441 has +-24.21. The real Sun stays within a few arcseconds of the ecliptic, so the app keeps `epv00`'s position along the ecliptic but places the Sun on the long-term (Vondrák) ecliptic of date. That brings the solstice declinations to +-24.20 and the Sun's total error at a 9000 BC test date from 0.21 to 0.18 degrees, and leaves recent dates unchanged.
-
-### What the Earth's rotation does and does not affect
-
-The app's clock is local solar time, which follows the Earth's rotation: in any era, local noon is when the Sun crosses the meridian. The stars follow the same rotation, so where a star stands at a local time does not depend on Delta T at all. The Sun, Moon and planets move along their orbits in uniform time, and to place them at a local time the app adds Delta T. Before the earliest dated eclipse records (Babylonian, from 720 BC) Delta T is not measured but extrapolated, and its uncertainty grows quickly:
-
-| Era | Uncertainty in Delta T | The Sun moved by | The Moon moved by |
-|---|---|---|---|
-| 1000 BC | 10 minutes | 0.007 degrees | 0.1 degrees |
-| 2500 BC | 25 minutes to 1.7 hours | 0.02 to 0.07 | 0.2 to 0.9 |
-| 4000 BC | 45 minutes to 4.5 hours | 0.03 to 0.19 | 0.4 to 2.5 |
-| 6000 BC | 1.4 to 10 hours | 0.06 to 0.4 | 0.8 to 5.7 |
-| 10,000 BC | 3 to 29 hours | 0.13 to 1.2 | 1.7 to 16 |
-
-The lower values follow Morrison & Stephenson (2004), whose standard error is 0.8 t^2 seconds, with t in centuries from 1820. The higher ones follow Huber's (2000) model, which treats changes in the Earth's rotation as a random walk; [NASA tabulates both](https://eclipse.gsfc.nasa.gov/SEhelp/uncertainty2004.html) back to 4000 BC. The rows for 6000 and 10,000 BC extend the same formulas beyond the range they were published for, so they are only indicative.
-
-What that means for the answers the app gives:
-
-- **Not affected:** star positions, and where and when stars rose and set, in every era; the years the alignment finder gives for stars; the solstice sunrise azimuths, and the era in which a solstice sunrise fell on an axis, which depend only on the tilt of the Earth's axis.
-- **Little affected:** the days of the year on which the Sun rose on an axis, and heliacal rising dates. Until 4000 BC the Sun's place in its yearly path is uncertain by at most a fifth of a degree (about five hours of its motion). By 10,000 BC the cautious estimate reaches about a degree, so a date could be a day out.
-- **Affected:** the Moon at a given local time. Under the cautious estimate it is uncertain by about a degree in 2500 BC and by several degrees before 5000 BC, and in deep prehistory the night of a full moon cannot be fixed. The limits of the Moon's monthly swing north and south, which lunar standstill studies use, come from the geometry of its orbit rather than from timing, and are not affected. The planets move at most a sixth as fast as the Moon across the sky and are affected correspondingly less.
-
-`/api/stars` reports this for every request in `meta.delta_t`: Delta T in seconds, its uncertainty under both estimates, how far that moves the Moon, and whether the date falls in the measured period (from 720 BC). Before 720 BC the web interface adds the cautious figure to the Moon's tooltip and info card.
-
-The uncertainty in Delta T is larger than the error of the Moon theory itself (1.75 degrees at 10,000 BC, from the table above), so a more precise ephemeris would not make the prehistoric Moon much more certain.
-
-### Alignment finder
-
-Where a star rises on the horizon depends only on the site's latitude and the star's declination: with the star's centre at geometric altitude h0 as it appears, cos A = (sin d - sin phi sin h0) / (cos phi cos h0) gives the rising azimuth A, and it sets at 360 - A. Precession changes every star's declination over the centuries, so its rising point sweeps along the horizon: seen from Göbekli Tepe around 8800 BC, Sirius rose 1.5 degrees further east each century. `src/alignment_finder.py` evaluates this for every year from 12,000 BC to today in one vectorized pass and reports the years in which the rising (or setting) point crossed the axis. h0 is the visible horizon lowered by refraction. For an axis that points at hills the horizon height can be raised, and it matters: each degree of horizon moves the Göbekli Tepe answer by about 210 years and the Teotihuacan one by about 75.
-
-For each crossing it also finds a night that year when the event happens near local midnight, so the sky can be shown with the star on the axis. The tests check the search by asking it for the year whose azimuth it was given, and check each night against the engine directly: the star stands on the horizon there to within 0.01 degrees, at the axis azimuth to within 0.02 degrees. For example, Sirius rose on the 165 degree axis of Göbekli Tepe in 8813 BC, within the site's period of use.
-
-The Sun is different: its rising point swings between the solstices every year rather than drifting over centuries. For the Sun the finder lists the days of the chosen year when sunrise (or sunset) fell on the axis, found from every sunrise of that year, and the range between the two solstices. It also asks which era's solstice sunrise fell exactly on the axis, the method Norman Lockyer used to date Stonehenge in the early 1900s: the solstice declination equals the obliquity of the ecliptic, which shrank from 24.2 degrees around 8000 BC to 23.44 today, so the solstice points move along the horizon. The obliquity matches IAU 2006 at J2000 (84381.406 arcseconds, falling 46.8 per century). These two routes, a closed formula with the obliquity and the year's sunrises from the solar ephemeris, agree on the solstice azimuths to 0.01 degrees from 9000 BC to today, and the tests hold them to it. Which part of the Sun counts as sunrise is a choice: the first gleam (default), the centre or the whole disc. Refraction is applied to the edge of the disc where it meets the horizon, and the centre lies one solar radius from it. With that, the app's sunrise and sunset times for 2025 agree with the US Naval Observatory's at ten sites from 59 degrees N to 46 degrees S, at every season, to within their rounding to the minute (160 times, none more than 33 seconds apart). Refracting the centre instead had put sunrise up to 74 seconds early.
-
-### Monument data
-
-Every monument in `src/data.py` carries its axis azimuth, the height of the visible horizon along it where one is known, and the source of both. Where no survey supports an axis (Avebury, Carnac, Tiwanaku) the azimuth is marked approximate, in the data and in the app. The alignment finder uses each site's measured horizon by default. Every source, for the monuments and for the engine, is listed with its strength in [docs/SOURCES.md](docs/SOURCES.md).
-
-Checking the original values against the literature found and fixed several errors: Stonehenge's axis was a flat-horizon sunset calculation (51.2 degrees) rather than the surveyed 49.95 degrees (Thom et al. 1974); Baalbek's azimuth was 12 degrees off and its latitude 0.2 degrees off; Carnac's coordinates pointed about 8 km away; and several notes described the wrong building or an unsupported claim.
-
-With the corrected data the engine reproduces published results, which the tests in `tests/test_monuments.py` hold it to:
-
-| Site | Published | This app |
-|---|---|---|
-| Teotihuacan, Pyramid of the Sun (Šprajc 2000) | sunsets on 30 April and 13 August | 30 April, 13 August |
-| Chichén Itzá, El Castillo (Šprajc and Sánchez Nava 2015) | sunsets on 20 May and 24 July | 20 May, 24 July |
-| Baalbek, Temple of Jupiter (Heritage 2021) | sunrises on about 30 April and 12 August | 1 May, 13 August |
-| Mnajdra, lower temple (Micallef 2000) | equinox sunrise | 22 March, 23 September |
-| Newgrange (Patrick 1974; O'Kelly 1967 timing) | light in the chamber for azimuths 133.7 to 138.4 degrees | the timed 1967 beam ran from 134.2 to 137.6 degrees |
-| Stonehenge (sarsen.org, Vondrák obliquity) | midsummer sunrise 49.6 degrees in 2500 BC, disc centre, level horizon | 49.59 degrees |
-
-### Heliacal rising
-
-A star's heliacal rising is the first morning it can be glimpsed in the dawn twilight after weeks hidden in the Sun's glare. How dark the sky must be depends on the star's brightness, and how high the star must climb depends on how much the air dims it near the horizon (extinction, in magnitudes per airmass). `src/visibility.py` uses Reijs's fits to Schaefer's visibility model ([archaeocosmology.org](http://www.archaeocosmology.org/eng/extinction.htm)): for Sirius in typical air (0.27, Schaefer's estimate for ancient Memphis) the Sun must be 6 degrees down and the star 4 degrees up, matching Schaefer (2000) and [IMCCE](https://promenade.imcce.fr/en/pages6/724.html); a magnitude 2 star needs the Sun 12 degrees down. The web interface offers clear, typical and hazy air.
-
-Every dawn from the previous October to the end of the target year is checked at once: a vectorized bisection finds when the Sun reaches the star's darkness limit each morning, and the first dawn in the target year on which the star is high enough, after one on which it was not, is reported. Stars that are seen every dawn (like Thuban, the pole star around 2800 BC) or never (Canopus from Giza in hazy air) are reported as such. The model's quoted uncertainty (about 1.5 to 2 degrees in each threshold) corresponds to a few days in the date.
-
-To run the tests, with the virtual environment activated (step 2 above):
+### Run the tests
 
 ```bash
 pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-If the environment is not activated, `python` may be your system Python, which does not have the project's packages, and every test file fails to import. Calling the environment's Python directly always works: `venv\Scripts\python.exe -m pytest` on Windows, `venv/bin/python -m pytest` on macOS / Linux.
-
-GitHub Actions runs the same suite on Ubuntu and Windows for every push (`.github/workflows/tests.yml`); the badge at the top shows the latest result.
-
-![Precession sweep, NCP traces its 26,000-year arc](docs/screenshot_precession.png)
+All 722 tests should pass in about 30 seconds.
 
 ---
 
-## API endpoints
+## Example output
 
-| Endpoint | Parameters | Description |
-|---|---|---|
-| `GET /api/stars` | `lat, lon, elevation, year, month, day, hour, calendar, refraction, horizon, site, format` | Star, Sun, Moon and planet alt-az positions plus the ecliptic, everything one sky view needs |
-| `GET /api/ecliptic` | same as `/api/stars` | Only the 73 ecliptic great-circle points in alt-az |
-| `GET /api/heliacal` | `lat, lon, year, star, extinction, horizon, site` | First heliacal rising date for a star |
-| `POST /api/horizon` | a horizon profile file as the request body | The profile in the compact form `horizon=` takes, with its point count and range |
-| `GET /api/alignment` | `site` or `lat, lon, elevation`; `star, event, azimuth, horizon, from, to, calendar, refraction, format`; for `star=Sun` also `year, limb` | Years in which a star rose or set along an axis, a night to see each, and the drift curve; for the Sun, the days of the year on the axis, the solstice range and the solstice eras on the axis |
-| `GET /api/sites` | none | List of all monument sites with coordinates and orientation notes |
+The command-line tool, at the Great Pyramid in 2560 BC (shortened):
 
-Dates are in the proleptic Gregorian calendar unless `calendar=julian` is given; `/api/stars` returns the same local date in both calendars in `meta.dates`, and `/api/heliacal` answers in the calendar requested. Historians give ancient dates in the Julian calendar (the Sothic rising of Sirius on 19 July), which by 2781 BC runs 23 days ahead of the Gregorian (26 June); the web interface can show either and switching relabels the same moment.
+```
+=== Archaeo-Astronomy Alignment [Vondrák 2011] ===
+Location : 29.9792, 31.1342
+Date     : 2560 BC, 03-20
+Time     : 21.50h  |  JD: 786483.31  |  LST: 140.06
+--------------------------------------------------------------
+STAR         | CONST          |      ALT |       AZ | STATUS
+--------------------------------------------------------------
+Alnitak      | Orion          | -24.28°   | 266.05°   | hidden
+Thuban       | Draco          |  30.95°   |   1.12°   | VISIBLE
+...
 
-`year` uses astronomical convention: -2500 = 2501 BC, 0 = 1 BC, 1 = 1 AD. The web interface shows and accepts historical years instead (-2500 = 2500 BC, no year 0) and converts them, so permalinks carry the astronomical value.
+--- Alignment check vs 'Great Pyramid of Giza' (±2.0°) ---
+  Thuban        az=  1.12°  (Δ=1.12°)  alt=+30.95°  [VISIBLE]
+```
 
-`site` must be an exact monument name from `/api/sites` (case does not matter). Invalid input returns HTTP 400 (404 for an unknown site) with a JSON body such as `{"error": "'lat' must be between -90.0 and 90.0"}`. Dates are checked against the real month length, so 29 February is accepted only in leap years. With custom coordinates, `elevation` (metres, default 0) sets the air pressure for refraction; `refraction=0` returns geometric altitudes on `/api/stars`, `/api/ecliptic` and `/api/heliacal`.
+The pyramid faces true north, and the star nearest that axis is Thuban, the pole star of the pyramid age.
 
-`horizon` is the skyline: a number for a level horizon (default 0; on `/api/alignment` the monument's measured horizon along its axis), or a horizon profile as `azimuth:altitude` pairs, `horizon=0:1.5,90:3,180:0.5,270:2`, interpolated linearly between points. With a profile, objects count as visible only above the skyline in their direction, sunrise and sunset are the first and last gleam over it (so a double sunset, the Sun reappearing in a notch, ends at its last gleam), and a heliacal rising waits until the star clears it. A star's alignment depends only on the skyline at the axis. `POST /api/horizon` turns a profile file (one `azimuth altitude` point per line, as surveys and Stellarium horizon files hold them) into that form: `curl --data-binary @skyline.txt http://localhost:5000/api/horizon`.
+The API, asking when Sirius rose along the 165-degree axis of Göbekli Tepe (`GET /api/alignment?site=Göbekli Tepe&star=Sirius`, shortened):
 
-`format=csv` on `/api/stars` and `/api/alignment` returns the results as a CSV file instead of JSON: one row per star and body, or for an alignment one table whose `section` column says what each row is (a crossing, a date, a solstice, a point on the drift curve). Each file begins with `#` lines recording the site, date, settings and the exact request, so it can be regenerated; spreadsheets show them as text rows, and pandas skips them with `pd.read_csv(path, comment='#')`. The web interface offers the same files through its CSV buttons.
+```json
+{
+  "star": "Sirius", "event": "rise", "azimuth": 165.0, "found": true,
+  "crossings": [
+    {"year": -8812, "drift_deg_per_century": -1.508,
+     "night": {"month": 8, "day": 4, "hour": 23.956, "azimuth": 165.002}}
+  ]
+}
+```
+
+Sirius rose on that axis in 8813 BC, within the site's period of use, while its rising point was moving 1.5 degrees along the horizon each century. All endpoints are documented in [docs/API.md](docs/API.md).
 
 ---
 
-## Dependencies
+## Project structure
 
-`requirements.txt` lists what the app needs; `requirements-dev.txt` adds the test tools.
+```
+app.py                  Flask server: the web page and the JSON/CSV API
+src/
+  precession.py         Star positions: space motion, long-term precession, Earth rotation
+  solar_system.py       Sun, Moon and planets from ERFA's analytic theories
+  timescales.py         Delta T, the slowing of the Earth's rotation, and its uncertainty
+  refraction.py         Atmospheric refraction, scaled by the site's elevation
+  visibility.py         How dark the sky and how high a star must be for it to be seen
+  horizon.py            Horizon profiles: the skyline's altitude in every direction
+  alignment.py          The sky for a site and date, heliacal risings, calendars (also a CLI)
+  alignment_finder.py   When a star or the Sun rose or set along an axis
+  data.py               Star catalogue (60 stars) and monument list, with sources
+  visualize.py          Static sky chart with Matplotlib (also a CLI)
+templates/index.html    Single-page web interface (Plotly.js)
+scripts/                Figure for this README
+tests/                  722 tests; data/ holds the JPL and US Naval Observatory reference values
+docs/                   Engine, accuracy, sources, API and a guide to investigating your own site
+```
 
-- **Flask:** web server
-- **pyerfa:** IAU SOFA routines: the Vondrák 2011 long-term precession and the Sun, Moon and planet theories
-- **numpy:** vectorized star and time calculations
-- **matplotlib:** static chart export (`src/visualize.py` only)
-- **astropy** and **pytest** (development only): independent reference values and the test runner
-- **Plotly.js** (CDN): interactive polar chart in the browser
+---
+
+## Limitations
+
+- **Bright stars only.** The catalogue holds 60 stars chosen for their place in ancient astronomy, so the chart shows stars down to magnitude 3.7 rather than the full naked-eye sky (about magnitude 6).
+- **Mean positions.** Nutation and aberration, two small periodic shifts under 21 arcseconds each, are left out. That is far below what any alignment claim depends on, but the positions are not suitable for precision work.
+- **Delta T before 720 BC is extrapolated.** Stars are unaffected, but the Moon's position at a given hour is uncertain by about a degree in 2500 BC and by several degrees in deep prehistory.
+- **The Moon and outer planets drift in deep time.** The analytic theories are tuned to recent millennia, reaching 1 to 2 degrees of error by 10,000 BC.
+- **Standard weather.** Refraction assumes standard conditions; real weather moves objects near the horizon by a few arcminutes.
+- **Visibility is a model.** Heliacal rising dates carry the model's uncertainty of a few days, and the sky view counts a star as visible whenever it is above the horizon, even in daylight.
+- **Some monument data is approximate.** The axes of Avebury, Carnac and Tiwanaku, and Machu Picchu's horizon, have no published survey behind them yet; the app marks them as approximate.
+- **Horizon profiles are not yet in shareable links.** A loaded skyline must be pasted again after following a link.
+- **Astronomy is not archaeology.** The app can show that a star rose on an axis in a given year; whether the builders intended it needs archaeological evidence and a check that the match is not chance (the [research guide](docs/RESEARCH_GUIDE.md) shows how easily chance matches occur).
+
+---
+
+## Roadmap
+
+**Done**
+
+- Long-term precession engine (Vondrák 2011 via ERFA), validated against astropy, JPL DE441 and the US Naval Observatory
+- Interactive web interface and static chart export
+- Alignment finder for stars and the Sun, heliacal risings, horizon profiles, CSV export and an API
+
+**Next**
+
+- **Expanded star catalogue:** the full naked-eye sky (about 9,000 stars from the Yale Bright Star Catalogue) instead of 60 stars
+- **Visualization:** horizon profiles carried in shareable links, and a view along an axis as an observer on the site would see it
+- **Interface:** a hosted public demo, and lunar standstill searches for sites claimed to follow the Moon
+- **Data:** published surveys for the remaining approximate monument axes
+
+---
+
+## Documentation
+
+- [docs/ENGINE.md](docs/ENGINE.md): how each part of the calculation works, in depth
+- [docs/ACCURACY.md](docs/ACCURACY.md): how accurate each answer is, by era, and what it was checked against
+- [docs/SOURCES.md](docs/SOURCES.md): every source behind the engine and the monument data, with its strength
+- [docs/API.md](docs/API.md): endpoints, parameters and CSV output
+- [docs/RESEARCH_GUIDE.md](docs/RESEARCH_GUIDE.md): investigating your own site, from measuring the axis to reporting a result
+
+## License
+
+[MIT](LICENSE)

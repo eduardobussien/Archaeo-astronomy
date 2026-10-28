@@ -36,7 +36,7 @@ The app moves each star through space from its catalogue position, then applies 
 
 Most of the difference is nutation and aberration, which astropy applies and this app leaves out (each under 21 arcseconds).
 
-**Before 1000 BC** astropy stops being a reference. It takes the CIO locator `s`, which ties the Earth's rotation to the sky, from the IAU 2006 polynomial series, and that series drifts from its own definition: 2.4 arcminutes at 2000 BC, 11 at 3000 BC, 38 at 4000 BC. This app integrates `s` from the definition instead, and integrating the definition along IAU 2006's own pole reproduces the app's value to within 0.06 arcminutes at 4000 BC (`tests/test_precession.py`). The README has the table.
+**Before 1000 BC** astropy stops being a reference. It takes the CIO locator `s`, which ties the Earth's rotation to the sky, from the IAU 2006 polynomial series, and that series drifts from its own definition: 2.4 arcminutes at 2000 BC, 11 at 3000 BC, 38 at 4000 BC. This app integrates `s` from the definition instead, and integrating the definition along IAU 2006's own pole reproduces the app's value to within 0.06 arcminutes at 4000 BC (`tests/test_precession.py`). [ENGINE.md](ENGINE.md) has the table.
 
 **Over the whole range**, the tests check known historical facts:
 
