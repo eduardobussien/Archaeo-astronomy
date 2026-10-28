@@ -14,13 +14,18 @@ def test_format_year_uses_astronomical_numbering(year, label):
     assert format_year(year) == label
 
 
-@pytest.mark.parametrize('calendar', ['gregorian', 'julian'])
-@pytest.mark.parametrize('year', [-12000, -10499, -4713, -4712, -2780, -1, 0, 1, 1582, 1900, 2000, 2024])
-@pytest.mark.parametrize('month, day', [(1, 1), (2, 28), (2, 29), (3, 1), (12, 31)])
+_ROUND_TRIP_DATES = [
+    (year, month, day, calendar)
+    for calendar in ('gregorian', 'julian')
+    for year in (-12000, -10499, -4713, -4712, -2780, -1, 0, 1, 1582, 1900, 2000, 2024)
+    for month, day in ((1, 1), (2, 28), (2, 29), (3, 1), (12, 31))
+    if day <= days_in_month(year, month, calendar)        # 29 February only in leap years
+]
+
+
+@pytest.mark.parametrize('year, month, day, calendar', _ROUND_TRIP_DATES)
 @pytest.mark.parametrize('hour', [0.0, 12.0, 23.99])
 def test_jd_to_date_inverts_date_to_jd(year, month, day, hour, calendar):
-    if (month, day) == (2, 29) and days_in_month(year, 2, calendar) == 28:
-        pytest.skip('not a leap year')
     assert _jd_to_date(_date_to_jd(year, month, day, hour, calendar), calendar) == (year, month, day)
 
 
