@@ -935,7 +935,7 @@
 
   fetch('/api/sites')
     .then(r => r.json())
-    .then(sites => {
+    .then(async sites => {
       SITES = sites;
       const sel = document.getElementById('site-select');
       Object.entries(sites).forEach(([name, data]) => {
@@ -948,8 +948,11 @@
       sel.value = 'Great Pyramid of Giza';
       onSiteChange();
       if (loadFromUrl()) {
+        // The link's skyline comes first, so the sky and the search below both use it.
+        const link = new URLSearchParams(window.location.search);
+        if (link.has('skyline')) await useSharedSkyline(link.get('skyline'));
         fetchAndRender();
-        if (new URLSearchParams(window.location.search).get('find') === '1') findAlignment();
+        if (link.get('find') === '1') findAlignment();
       }
     });
 
@@ -1058,6 +1061,13 @@
       const kept = horizonProfile ? ' The previous skyline is still in use.' : '';
       showHorizonStatus(e.message.replace(/\.?$/, '.') + kept, true);
     }
+  }
+
+  // A link holds the skyline as 'az:alt,az:alt'. Reading it like a pasted profile also shows
+  // its points in the box, and a damaged link reports why and leaves the horizon level.
+  function useSharedSkyline(compact) {
+    document.getElementById('hz-text').value = compact.replaceAll(',', '\n').replaceAll(':', ' ');
+    return useHorizonProfile();
   }
 
   document.getElementById('hz-file').addEventListener('change', e => {
@@ -1394,6 +1404,7 @@
     p.set('planets',  planetsOn  ? '1' : '0');
     p.set('labels',   labelsOn   ? '1' : '0');
     p.set('ecliptic', eclipticOn ? '1' : '0');
+    if (horizonProfile) p.set('skyline', horizonProfile.profile);
     // The alignment finder's inputs, and whether a search was run, so a link reopens it
     const axis = document.getElementById('af-azimuth').value;
     if (axis !== '') {

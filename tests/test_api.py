@@ -234,6 +234,12 @@ def test_horizon_endpoint_reads_a_profile_file():
     assert bad.status_code == 400 and 'Line 2' in bad.get_json()['error']
 
 
+def test_a_skyline_from_a_shared_link_reads_back_unchanged():
+    # The page turns a link's 'az:alt,az:alt' into lines and sends them to /api/horizon.
+    lines = PROFILE.replace(',', '\n').replace(':', ' ')
+    assert CLIENT.post('/api/horizon', data=lines).get_json()['profile'] == PROFILE
+
+
 def test_stars_are_visible_only_above_the_skyline_and_the_outline_is_returned():
     params = {'site': 'Stonehenge', 'year': '-2499', 'month': '6', 'day': '21', 'hour': '4'}
     assert _get('/api/stars', **params).get_json()['horizon'] is None

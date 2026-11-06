@@ -197,7 +197,6 @@ docs/                   Engine, accuracy, sources, API and a guide to investigat
 - **Standard weather.** Refraction assumes standard conditions; real weather moves objects near the horizon by a few arcminutes.
 - **Visibility is a model.** Heliacal rising dates carry the model's uncertainty of a few days, and the sky view counts a star as visible whenever it is above the horizon, even in daylight.
 - **Some monument data is approximate.** The axes of Avebury, Carnac and Tiwanaku, and Machu Picchu's horizon, have no published survey behind them yet; the app marks them as approximate.
-- **Horizon profiles are not yet in shareable links.** A loaded skyline must be pasted again after following a link.
 - **Astronomy is not archaeology.** The app can show that a star rose on an axis in a given year; whether the builders intended it needs archaeological evidence and a check that the match is not chance (the [research guide](docs/RESEARCH_GUIDE.md) shows how easily chance matches occur).
 
 ---
@@ -213,7 +212,7 @@ docs/                   Engine, accuracy, sources, API and a guide to investigat
 **Next**
 
 - **Expanded star catalogue:** the full naked-eye sky (about 9,000 stars from the Yale Bright Star Catalogue) instead of 60 stars
-- **Visualization:** horizon profiles carried in shareable links, and a view along an axis as an observer on the site would see it
+- **Visualization:** a view along an axis as an observer on the site would see it
 - **Interface:** a hosted public demo, and lunar standstill searches for sites claimed to follow the Moon
 - **Data:** published surveys for the remaining approximate monument axes
 
