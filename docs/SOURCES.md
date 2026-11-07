@@ -117,6 +117,8 @@ References in [RESEARCH_GUIDE.md](RESEARCH_GUIDE.md):
 
 - **Magnetic declination:** [NOAA NCEI magnetic field calculators](https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml). Primary.
 - **Horizon profiles from elevation data:** [HeyWhatsThat](https://www.heywhatsthat.com), computed from SRTM data with the Earth's curvature and terrestrial refraction ([FAQ](https://www.heywhatsthat.com/faq.html)). Secondary (a tool, not a survey).
+- **Horizon list format:** [Stellarium developer documentation, LandscapePolygonal](https://stellarium.org/doc/head/classLandscapePolygonal.html). Primary, for the format.
+- **The Leek double sunset:** Kilburn, K. (1999), [Manchester Astronomical Society](https://www.manastro.org/leek/sunset.html), quoting Plot, R. (1686), *The Natural History of Stafford-Shire*. Secondary; Plot's book itself was not consulted.
 - **Stars near the horizon:** Schaefer, B. E. (1986), *Atmospheric extinction effects on stellar alignments*, JHA Archaeoastronomy Supplement 17, S32-S42, [doi:10.1177/002182868601701003](https://doi.org/10.1177/002182868601701003). Primary.
 - **Chance alignments and method:** Ruggles, C. (1999), *Astronomy in Prehistoric Britain and Ireland*, Yale University Press. Primary.
 
