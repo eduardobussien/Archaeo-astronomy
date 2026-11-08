@@ -234,6 +234,15 @@ def test_horizon_endpoint_reads_a_profile_file():
     assert bad.status_code == 400 and 'Line 2' in bad.get_json()['error']
 
 
+def test_the_message_explains_a_sunset_that_jumped_past_the_axis():
+    body = _get('/api/alignment', lat='42.5', lon='12.3', star='Sun', event='set', azimuth='299.8',
+                year='-2499', horizon='0:1,290:1,299:7,300.5:1').get_json()
+    assert body['dates'] == [] and len(body['leaps']) == 2
+    assert body['message'].startswith('In 2500 BC sunset never fell on the 299.8 degree axis: '
+                                      'the skyline made the sunset point jump past it overnight, '
+                                      'on June 2 from 296.0 to 300.6 degrees')
+
+
 def test_a_skyline_from_a_shared_link_reads_back_unchanged():
     # The page turns a link's 'az:alt,az:alt' into lines and sends them to /api/horizon.
     lines = PROFILE.replace(',', '\n').replace(':', ' ')

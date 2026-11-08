@@ -342,7 +342,8 @@ def alignment():
     the axis); from and to (astronomical years, default 12,000 BC to the current
     year). For the Sun also: year (astronomical, default -2499) to list the
     days of that year, and limb ('upper' for the first gleam, the default,
-    'centre' or 'lower' for the whole disc on the horizon). format ('json' or
+    'centre' or 'lower' for the whole disc on the horizon); 'leaps' lists the
+    nights a skyline made the Sun's point jump past the axis. format ('json' or
     'csv') as /api/stars; the CSV is one table whose 'section' column says what
     each row is.
     """
@@ -461,6 +462,11 @@ def _sun_alignment(lat, lon, elevation, azimuth, event, skyline, refract, first_
     when = 'sunrise' if event == 'rise' else 'sunset'
     if result['june'] is None:
         result['message'] = f"There is no {when} here in {format_year(year)}."
+    elif not result['dates'] and result['leaps']:
+        jumps = ' and '.join(f"on {_MONTHS[j['month']]} {j['day']} from {j['from_azimuth']:.1f} to "
+                             f"{j['to_azimuth']:.1f} degrees" for j in result['leaps'])
+        result['message'] = (f"In {format_year(year)} {when} never fell on the {azimuth:g} degree "
+                             f"axis: the skyline made the {when} point jump past it overnight, {jumps}.")
     elif not result['dates']:
         result['message'] = (f"In {format_year(year)} {when} never fell on the {azimuth:g} degree "
                              f"axis: it ranged from {result['june']['azimuth']:.1f} degrees at the "

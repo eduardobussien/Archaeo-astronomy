@@ -79,7 +79,7 @@ The app reports the last of these as the sunset, and likewise takes sunrise as t
 
 To test a claim about the first disappearance instead, hold the skyline at the peak's height beyond the peak, here `0:1,290:1,299:7,359:7`. The app then gives the 18:55 sunset at 297.6 degrees.
 
-**Check the azimuth in the answer.** A double sunset begins suddenly, so the sunset point jumps: in this example from 296.0 to 300.6 degrees overnight on 2 June. No sunset ever falls between those two azimuths, yet for an axis in that gap the finder currently still lists the night of the jump. Compare the azimuth it reports with your axis: a difference of more than a few tenths of a degree means the Sun leapt over the axis and did not set on it.
+**The sunset point can jump.** A double sunset begins suddenly, so the sunset point jumps: in this example from 296.0 to 300.6 degrees overnight on 2 June, and back on 16 July. No sunset falls between those two azimuths, so for an axis in that gap the finder lists no dates and says instead on which nights the sunset jumped past it. It counts a night as a jump when the point moves more than a degree, and over three times as far as on the nights either side; ordinary days move it less than a degree, except near the polar circles, where it moves faster but smoothly.
 
 ## 4. Which part of the Sun
 

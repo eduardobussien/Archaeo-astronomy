@@ -2,7 +2,8 @@ import numpy as np
 import pytest
 
 from alignment import _date_to_jd, calculate_alignments, find_heliacal_rising
-from alignment_finder import _sun_centre_altitude, find_axis_crossings, sun_events_in_year
+from alignment_finder import (_sun_centre_altitude, find_axis_crossings, find_sun_alignment,
+                              sun_events_in_year)
 from data import MONUMENTS
 from horizon import MAX_POINTS, HorizonProfile, as_profile
 from solar_system import sun_altaz
@@ -117,6 +118,34 @@ def test_sunrise_and_sunset_over_a_jagged_skyline_match_a_second_by_second_scan(
             assert abs(jd[day] - expected) * 86400.0 < 2.0
             several_crossings |= len(moments) > 1
     assert several_crossings
+
+
+def _days(entries):
+    return [(e['month'], e['day']) for e in entries]
+
+
+def test_no_sunset_on_an_axis_the_sunset_point_jumps_over():
+    # The research guide's double sunset: the hill's north side falls faster than the
+    # Sun sinks, so from 2 June the Sun shows again beyond the peak and the last gleam
+    # jumps from about 296.0 to 300.6 degrees overnight (and back on 16 July).
+    hill = HorizonProfile([0, 290, 299, 300.5], [1, 1, 7, 1])
+    site = 42.5, 12.3
+    inside = find_sun_alignment(*site, 299.8, 'set', -2499, hill)
+    assert inside['dates'] == [] and _days(inside['leaps']) == [(6, 2), (7, 16)]
+    june = inside['leaps'][0]
+    assert june['from_azimuth'] < 296.5 and june['to_azimuth'] > 300.5
+    # At the edge of the gap the Sun does set on the axis, on the night of the jump
+    edge = find_sun_alignment(*site, 300.5, 'set', -2499, hill)
+    assert _days(edge['dates']) == [(6, 2), (7, 15)] and edge['leaps'] == []
+    beyond = find_sun_alignment(*site, 302.0, 'set', -2499, hill)
+    assert _days(beyond['dates']) == [(6, 9), (7, 8)] and beyond['leaps'] == []
+
+
+def test_a_level_horizon_never_leaps_even_near_the_polar_circle():
+    # At 66 N, near midsummer, the sunrise point moves about 2 degrees a day, but smoothly.
+    for lat, axis in ((42.5, 70.0), (64.0, 40.0), (66.0, 5.0)):
+        result = find_sun_alignment(lat, 12.3, axis, 'rise', 2025, 0.0)
+        assert result['leaps'] == [] and len(result['dates']) == 2
 
 
 def test_sunrise_depends_only_on_the_skyline_where_the_sun_rises():

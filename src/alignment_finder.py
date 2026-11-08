@@ -256,6 +256,17 @@ def sun_events_in_year(lat, lon, year, event='rise', horizon=0.0, elevation_m=0.
     return np.where(has_event, jd, np.nan), np.where(has_event, az, np.nan)
 
 
+_LEAP_DEG = 1.0   # away from the polar circles, the Sun's rising point moves less than this a day
+
+
+def _usual_step(step, i):
+    """How far the event moved on the nights either side of night i (0 if neither has one).
+    The rising point moves smoothly from day to day, so a step several times larger is a
+    jump over part of the horizon where the Sun never rose, not a pass across it."""
+    around = [step[j] for j in (i - 1, i + 1) if 0 <= j < len(step) and np.isfinite(step[j])]
+    return max(around, default=0.0)
+
+
 def find_sun_alignment(lat, lon, azimuth, event='rise', year=-2499, horizon=0.0, elevation_m=0.0,
                        refract=True, limb='upper', first_year=-11999, last_year=2026,
                        calendar='gregorian'):
@@ -271,15 +282,27 @@ def find_sun_alignment(lat, lon, azimuth, event='rise', year=-2499, horizon=0.0,
     horizon is a HorizonProfile or the altitude of a level horizon: the days
     and solstices follow the whole skyline, while the solstice's drift over
     the centuries, like a star's, depends only on the skyline at the axis.
+
+    'leaps': the nights on which a skyline made the sunrise (or sunset) point
+    jump past the axis, as when a double sunset begins and the last gleam
+    moves beyond a peak overnight. No sunrise (or sunset) fell in the gap, so
+    those nights are not in 'dates'; each gives the day after the jump and the
+    azimuths before and after it.
     """
     jd, az = sun_events_in_year(lat, lon, year, event, horizon, elevation_m, refract, limb, calendar)
     offset = az - azimuth
+    step = np.abs(np.diff(az))                      # how far the event moved along the horizon overnight
     with np.errstate(invalid='ignore'):
         changes = (np.isfinite(offset[:-1]) & np.isfinite(offset[1:])
                    & (np.sign(offset[:-1]) != np.sign(offset[1:])))
-    dates = []
+    dates, leaps = [], []
     for i in np.flatnonzero(changes):
         k = i if abs(offset[i]) <= abs(offset[i + 1]) else i + 1
+        usual = _usual_step(step, i)
+        if step[i] > max(_LEAP_DEG, 3.0 * usual) and abs(offset[k]) > usual:
+            leaps.append({**_local_moment(jd[i + 1], lon, calendar),
+                          'from_azimuth': round(float(az[i]), 3), 'to_azimuth': round(float(az[i + 1]), 3)})
+            continue
         dates.append({**_local_moment(jd[k], lon, calendar), 'azimuth': round(float(az[k]), 3)})
 
     def extreme(k):
@@ -310,6 +333,7 @@ def find_sun_alignment(lat, lon, azimuth, event='rise', year=-2499, horizon=0.0,
         'found': bool(dates) or bool(summary and summary['crossings']),
         'year': year,
         'dates': dates,
+        'leaps': leaps,
         'june': june,
         'december': december,
         'solstice': {'which': 'june' if north else 'december', **(summary or {'crossings': []})},
