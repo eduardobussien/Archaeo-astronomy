@@ -533,5 +533,6 @@ def sites():
 
 
 if __name__ == '__main__':
+    # The development server. In production gunicorn serves the app (gunicorn.conf.py).
     # The Werkzeug debugger can run arbitrary code, so it is opt-in: FLASK_DEBUG=1.
-    app.run(debug=os.environ.get('FLASK_DEBUG') == '1')
+    app.run(port=int(os.environ.get('PORT', '5000')), debug=os.environ.get('FLASK_DEBUG') == '1')
