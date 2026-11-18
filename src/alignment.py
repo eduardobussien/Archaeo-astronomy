@@ -1,5 +1,6 @@
 import argparse
 import math
+import sys
 import warnings
 import numpy as np
 import erfa
@@ -311,6 +312,9 @@ def _print_alignment_results(matches, monument_name, threshold_deg):
 
 
 if __name__ == "__main__":
+    # Windows writes redirected or piped output in its legacy code page (cp1252), which has
+    # no 'Δ' and so crashes the table; UTF-8 can print every character the CLI uses.
+    sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(
         description="Archaeo-Astronomy Alignment Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,

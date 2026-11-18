@@ -39,8 +39,8 @@ def test_el_castillo_sunsets_match_sprajc_and_sanchez_nava():
 def test_baalbek_sunrises_match_the_bekaa_valley_study():
     (m1, d1), (m2, d2) = _sun_dates('Baalbek (Temple of Jupiter)', 50, 'rise')
     assert (m1, m2) == (5, 8) or (m1, m2) == (4, 8)
-    assert abs(_date_to_jd(50, m1, d1, 0) - _date_to_jd(50, 4, 30, 0)) <= 2
-    assert abs(_date_to_jd(50, m2, d2, 0) - _date_to_jd(50, 8, 12, 0)) <= 2
+    assert abs(_date_to_jd(50, m1, d1, 0) - _date_to_jd(50, 4, 30, 0)) <= 1
+    assert abs(_date_to_jd(50, m2, d2, 0) - _date_to_jd(50, 8, 12, 0)) <= 1
 
 
 def test_mnajdra_axis_marks_the_equinox_sunrise():

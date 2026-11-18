@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
 
-**Tests claims that ancient monuments were aligned to the stars, by recomputing the sky over any site on any night from 12,000 BC to today with research-grade astronomy, checked against NASA JPL and the US Naval Observatory.**
+**Tests claims that ancient monuments were aligned to the stars, by recomputing the sky over any site on any night from 12,000 BC to today, validated against reference values from NASA JPL and the US Naval Observatory.**
 
 ![How high Orion's Belt climbed over Giza each night, 12,000 BC to today](docs/orion_belt_giza.png)
 
@@ -18,11 +18,11 @@
 - **Finds alignments.** Give it a monument's axis and it finds the years a star rose or set along it, or the days the Sun did, then jumps to that moment.
 - **Answers calendar questions,** such as the first dawn Sirius became visible each year (its *heliacal rising*, which marked the Egyptian New Year).
 - **Handles real landscapes.** Load a surveyed skyline and hills hide what is behind them; sunrise waits until the Sun clears them.
-- **Shows its work.** Every answer is reproducible through a JSON and CSV API, every accuracy figure is held by an automated test (722 in all), and every source is cited.
+- **Shows its work.** Every answer is reproducible through a JSON and CSV API, every accuracy figure is held by an automated test (733 in all), and every source is cited.
 
 ![The sky over the Pyramid of the Sun, Teotihuacan, at sunset on 30 April AD 150](docs/screenshot_teotihuacan.png)
 
-*The web app reproducing a published result: on 30 April the Sun sets exactly along the axis of the Pyramid of the Sun at Teotihuacan (yellow line), as Šprajc (2000) found. Its other sunset date, 13 August, splits the year into 105 and 260 days, and 260 days is the length of the Mesoamerican ritual calendar.*
+*The web app reproducing a published result: on 30 April the Sun sets exactly along the axis of the Pyramid of the Sun at Teotihuacan (yellow line), as Šprajc (2000) found. Its other sunset date, 13 August, splits the year into 105 and 260 days, and 260 days is the length of the Mesoamerican ritual calendar. Both dates count the moment the centre of the Sun's disc meets the horizon, as Šprajc did; with the app's default, the Sun's last gleam, the August date is the 14th.*
 
 ---
 
@@ -47,7 +47,7 @@ The Sun, Moon and planets follow the same last two steps, but first need the slo
 | Where was a star at a given local time? | Within 0.7 arcminutes of astropy back to 1000 BC |
 | What time was sunrise or sunset? | Within 33 seconds of the US Naval Observatory (it rounds to the minute) |
 | Where were the Sun, Moon and planets? | Within 0.2 degrees of NASA JPL back to 3000 BC |
-| On which days did the Sun set along Teotihuacan's axis? | The published dates exactly (30 April, 13 August) |
+| On which days did the Sun set along Teotihuacan's axis? | The published dates exactly (30 April, 13 August), counting the Sun's centre as the publication does |
 
 ---
 
@@ -123,7 +123,7 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-All 722 tests should pass in about 30 seconds.
+All 733 tests should pass in under a minute.
 
 ---
 
@@ -182,7 +182,7 @@ src/
   visualize.py          Static sky chart with Matplotlib (also a CLI)
 templates/index.html    Single-page web interface (Plotly.js)
 scripts/                Figure for this README
-tests/                  722 tests; data/ holds the JPL and US Naval Observatory reference values
+tests/                  733 tests; data/ holds the JPL and US Naval Observatory reference values
 docs/                   Engine, accuracy, sources, API and a guide to investigating your own site
 ```
 

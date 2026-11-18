@@ -1,4 +1,5 @@
 import argparse
+import sys
 import warnings
 import numpy as np
 import matplotlib.pyplot as plt
@@ -204,6 +205,9 @@ def plot_sky_map(results, monument_name=None, threshold_deg=2.0, save_path=None)
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    # As in alignment.py: UTF-8 output, so any character in a site name or message prints
+    # on Windows even when the output is redirected.
+    sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(
         description="Archaeo-Astronomy Sky Map Visualizer",
         formatter_class=argparse.RawDescriptionHelpFormatter,

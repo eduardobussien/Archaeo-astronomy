@@ -110,12 +110,12 @@ Saemundsson's formula agrees with ERFA's refraction model to within 0.15 arcminu
 
 ## Monuments: published results the app reproduces
 
-With each site's surveyed axis and horizon (`tests/test_monuments.py`):
+With each site's surveyed axis and horizon (`tests/test_monuments.py`). Šprajc's dates are for the Sun's centre on the horizon, so the app is checked with the same setting (`limb=centre` in the API, "Centre of the disc" in the web app); with the default, the first or last gleam of the Sun's upper edge, a date can fall a day later (13 August at Teotihuacan becomes 14 August).
 
 | Site | Published | This app |
 |---|---|---|
-| Teotihuacan, Pyramid of the Sun (Šprajc 2000) | sunsets on 30 April and 13 August | 30 April, 13 August |
-| Chichén Itzá, El Castillo (Šprajc and Sánchez Nava 2015) | sunsets on 20 May and 24 July | 20 May, 24 July |
+| Teotihuacan, Pyramid of the Sun (Šprajc 2000) | sunsets on 30 April and 13 August (Sun's centre) | 30 April, 13 August |
+| Chichén Itzá, El Castillo (Šprajc and Sánchez Nava 2015) | sunsets on 20 May and 24 July (Sun's centre) | 20 May, 24 July |
 | Baalbek, Temple of Jupiter (Heritage 2021) | sunrises on about 30 April and 12 August | 1 May, 13 August |
 | Mnajdra, lower temple (Micallef 2000) | equinox sunrise | 22 March, 23 September |
 | Newgrange (Patrick 1974; O'Kelly 1967 timing) | sunlight in the chamber for azimuths 133.7 to 138.4 degrees | the timed 1967 beam ran from 134.2 to 137.6 degrees |
